@@ -3,13 +3,13 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: cloudtools
-      POSTGRES_PASSWORD: cloudtools_dev
-      POSTGRES_DB: cloudtools
+      POSTGRES_USER: skytools
+      POSTGRES_PASSWORD: skytools_dev
+      POSTGRES_DB: skytools
     ports:
       - "5433:5432"
     volumes:
-      - cloudtools_pgdata:/var/lib/postgresql/data
+      - skytools_pgdata:/var/lib/postgresql/data
 
 volumes:
-  cloudtools_pgdata:
+  skytools_pgdata:

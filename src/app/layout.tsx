@@ -18,8 +18,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "CloudTools",
-    template: "%s — CloudTools",
+    default: "Sky Tools",
+    template: "%s — Sky Tools",
   },
   description: "A growing collection of free, no-nonsense web tools.",
   other: {

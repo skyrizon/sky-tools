@@ -14,7 +14,7 @@ Two primary audiences:
 
 ## Product Purpose
 
-CloudTools is a growing collection of small, focused, free web tools, hosted under one site and one account system. The first tool is a QR Code Generator (text/URL, WiFi, contact card, SMS templates, optional logo, PNG export). More tools will be added over time behind the same shared foundation (auth, history, layout, tool registry).
+Sky Tools is a growing collection of small, focused, free web tools, hosted under one site and one account system. The first tool is a QR Code Generator (text/URL, WiFi, contact card, SMS templates, optional logo, PNG export). More tools will be added over time behind the same shared foundation (auth, history, layout, tool registry).
 
 ## Positioning
 

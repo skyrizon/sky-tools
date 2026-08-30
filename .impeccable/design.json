@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "generatedAt": "2026-08-31T00:00:00.000Z",
-  "title": "Design System: CloudTools",
+  "title": "Design System: Sky Tools",
   "extensions": {
     "colorMeta": {
       "accent": { "role": "primary", "displayName": "Toolbench Blue", "canonical": "#1786f9", "tonalRamp": ["#04162e", "#082a52", "#0d4079", "#1156a3", "#1786f9", "#5eb0ff", "#a3d1ff", "#eaf4ff"] },
@@ -87,14 +87,14 @@
       "name": "Top Navigation",
       "kind": "nav",
       "refersTo": "card",
-      "description": "Sticky top bar with the CloudTools logo image and auth-aware nav links.",
-      "html": "<header class=\"ds-nav\"><a class=\"ds-nav__logo\" href=\"#\"><img src=\"/logo-lockup.png\" alt=\"CloudTools\" class=\"ds-nav__logo-img\"/></a><nav class=\"ds-nav__links\"><a href=\"#\">Tools</a><a class=\"ds-nav__cta\" href=\"#\">Sign up</a></nav></header>",
+      "description": "Sticky top bar with the Sky Tools logo image and auth-aware nav links.",
+      "html": "<header class=\"ds-nav\"><a class=\"ds-nav__logo\" href=\"#\"><img src=\"/logo-lockup.png\" alt=\"Sky Tools\" class=\"ds-nav__logo-img\"/></a><nav class=\"ds-nav__links\"><a href=\"#\">Tools</a><a class=\"ds-nav__cta\" href=\"#\">Sign up</a></nav></header>",
       "css": ".ds-nav { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 24px; background: rgba(255,255,255,0.8); backdrop-filter: blur(8px); border-bottom: 1px solid #e2e7ec; } .ds-nav__logo-img { display: block; height: 28px; width: auto; } .ds-nav__links { display: flex; align-items: center; gap: 24px; font-size: 0.875rem; font-weight: 600; } .ds-nav__links a { color: #5b6672; text-decoration: none; } .ds-nav__links a:hover { color: #10151c; } .ds-nav__cta { background: linear-gradient(to bottom right, #1786f9, #5eb0ff); color: #ffffff !important; padding: 8px 16px; border-radius: 8px; }"
     }
   ],
   "narrative": {
     "northStar": "The Quiet Toolbench",
-    "overview": "CloudTools looks like a well-organized workshop, not a storefront. Every surface exists to help someone finish a task in seconds — generate a code, download it, move on — so the interface stays plain, sturdy, and confident through restraint rather than decoration. A single calm, trustworthy blue, sampled directly from the CloudTools logo mark, is the only color the system spends deliberately; everything else is white space, soft neutral cards, and legible type doing the actual work. This is a utility identity, not a marketing one. It explicitly rejects the glossy SaaS-landing-page register (no big gradient hero sections, no glassmorphism, no illustration-heavy pitch energy) and the opposite failure mode of a dense enterprise dashboard (no cramped data tables, no wall-to-wall controls). As more tools join the registry, each one should feel like it was carved from the same quiet toolbench, not bolted on.",
+    "overview": "Sky Tools looks like a well-organized workshop, not a storefront. Every surface exists to help someone finish a task in seconds — generate a code, download it, move on — so the interface stays plain, sturdy, and confident through restraint rather than decoration. A single calm, trustworthy blue, sampled directly from the Sky Tools logo mark, is the only color the system spends deliberately; everything else is white space, soft neutral cards, and legible type doing the actual work. This is a utility identity, not a marketing one. It explicitly rejects the glossy SaaS-landing-page register (no big gradient hero sections, no glassmorphism, no illustration-heavy pitch energy) and the opposite failure mode of a dense enterprise dashboard (no cramped data tables, no wall-to-wall controls). As more tools join the registry, each one should feel like it was carved from the same quiet toolbench, not bolted on.",
     "keyCharacteristics": [
       "Calm, single-accent blue used sparingly against a near-white neutral field",
       "Flat-leaning, restrained elevation — shadows separate, they don't decorate",
@@ -102,7 +102,7 @@
       "Quietly refined component detailing (smooth radii, considered gradients) rather than bare-framework defaults"
     ],
     "rules": [
-      { "name": "The One Accent Rule", "body": "Blue is the only hue in the system. Any new tool that needs a second signal color (success, warning) should reach for the neutral scale plus the existing red before introducing a new hue — CloudTools does not accumulate a rainbow of per-tool accents.", "section": "colors" },
+      { "name": "The One Accent Rule", "body": "Blue is the only hue in the system. Any new tool that needs a second signal color (success, warning) should reach for the neutral scale plus the existing red before introducing a new hue — Sky Tools does not accumulate a rainbow of per-tool accents.", "section": "colors" },
       { "name": "The No-Second-Typeface Rule", "body": "Every future tool uses Geist Sans for UI text. A tool that displays user data verbatim may use Geist Mono for that data only — never for labels, buttons, or headings.", "section": "typography" },
       { "name": "The One Shadow Rule", "body": "At most one element per screen carries the tinted 'primary action' shadow. If a screen has no single primary action, no element gets it.", "section": "elevation" }
     ],
@@ -113,7 +113,7 @@
       "Do keep forms single-column and vertically stacked, regardless of how many fields a new tool needs."
     ],
     "donts": [
-      "Don't introduce glassmorphism, large gradient hero sections, or illustration-heavy marketing composition — CloudTools is a toolbench, not a landing page.",
+      "Don't introduce glassmorphism, large gradient hero sections, or illustration-heavy marketing composition — Sky Tools is a toolbench, not a landing page.",
       "Don't build dense, data-table-heavy dashboard layouts — keep spacing generous even as more saved items or tools accumulate.",
       "Don't add a second accent color for a new tool's 'brand' — every tool shares the one blue identity.",
       "Don't use heavy neutral drop shadows; if a surface needs to lift, use the ambient card-lift value or the accent-tinted primary-action shadow, never a generic dark shadow.",
