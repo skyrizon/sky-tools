@@ -1,0 +1,123 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-31T00:00:00.000Z",
+  "title": "Design System: CloudTools",
+  "extensions": {
+    "colorMeta": {
+      "accent": { "role": "primary", "displayName": "Toolbench Blue", "canonical": "#1786f9", "tonalRamp": ["#04162e", "#082a52", "#0d4079", "#1156a3", "#1786f9", "#5eb0ff", "#a3d1ff", "#eaf4ff"] },
+      "accent-2": { "role": "primary", "displayName": "Toolbench Blue, lifted", "canonical": "#5eb0ff", "tonalRamp": ["#062544", "#0c3d6f", "#13579c", "#1c78d6", "#5eb0ff", "#8ac5ff", "#c0e0ff", "#eaf4ff"] },
+      "accent-hover": { "role": "primary", "displayName": "Toolbench Blue, pressed", "canonical": "#0f6cd1" },
+      "accent-soft": { "role": "primary", "displayName": "Accent Wash", "canonical": "#eaf4ff" },
+      "background": { "role": "neutral", "displayName": "Paper", "canonical": "#f7f9fb" },
+      "background-raised": { "role": "neutral", "displayName": "Card White", "canonical": "#ffffff" },
+      "foreground": { "role": "neutral", "displayName": "Ink", "canonical": "#10151c" },
+      "muted": { "role": "neutral", "displayName": "Slate Muted", "canonical": "#5b6672" },
+      "border": { "role": "neutral", "displayName": "Hairline", "canonical": "#e2e7ec" },
+      "border-soft": { "role": "neutral", "displayName": "Hairline Soft", "canonical": "#edf1f4" },
+      "error": { "role": "error", "displayName": "Alert Red", "canonical": "#dc2626" },
+      "error-soft": { "role": "error", "displayName": "Alert Red Wash", "canonical": "#fef2f2" }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Homepage hero heading only." },
+      "headline": { "displayName": "Headline", "purpose": "Page-level titles inside a tool or section." },
+      "title": { "displayName": "Title", "purpose": "Card-level titles: auth headings, tool-card names." },
+      "body": { "displayName": "Body", "purpose": "Paragraph copy, descriptions, helper text." },
+      "label": { "displayName": "Label", "purpose": "Form labels, button text, nav links." }
+    },
+    "shadows": [
+      { "name": "ambient-card-lift", "value": "0 10px 25px -10px rgb(0 0 0 / 0.05)", "purpose": "Lifts raised auth-style cards off the page without looking heavy." },
+      { "name": "primary-action-glow", "value": "0 4px 12px -2px rgb(23 134 249 / 0.3)", "purpose": "Exclusively on the primary gradient button, tinted with the accent color." }
+    ],
+    "motion": [],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "lg", "value": "1024px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The single primary action on a screen — gradient blue fill with a tinted shadow.",
+      "html": "<button class=\"ds-btn-primary\">Generate QR code</button>",
+      "css": ".ds-btn-primary { background: linear-gradient(to bottom right, #1786f9, #5eb0ff); color: #ffffff; font-weight: 700; padding: 10px 20px; border-radius: 8px; border: none; box-shadow: 0 4px 12px -2px rgb(23 134 249 / 0.3); transition: filter 0.15s, opacity 0.15s; } .ds-btn-primary:hover { filter: brightness(1.05); } .ds-btn-primary:focus-visible { outline: 3px solid #eaf4ff; outline-offset: 2px; } .ds-btn-primary:disabled { opacity: 0.6; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Outline button for non-primary actions (e.g. Download PNG).",
+      "html": "<button class=\"ds-btn-secondary\">Download PNG</button>",
+      "css": ".ds-btn-secondary { background: transparent; color: #10151c; font-weight: 700; padding: 10px 16px; border-radius: 8px; border: 1px solid #e2e7ec; transition: background-color 0.15s; } .ds-btn-secondary:hover { background: #f7f9fb; } .ds-btn-secondary:focus-visible { outline: 3px solid #eaf4ff; outline-offset: 2px; }"
+    },
+    {
+      "name": "Input Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Text input used across auth forms and tool inputs.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"you@example.com\" />",
+      "css": ".ds-input { background: #ffffff; color: #10151c; border: 1px solid #e2e7ec; border-radius: 8px; padding: 10px 12px; font-size: 1rem; transition: border-color 0.15s, box-shadow 0.15s; } .ds-input:focus { outline: none; border-color: #1786f9; box-shadow: 0 0 0 4px #eaf4ff; }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Raised container for auth panels and tool content.",
+      "html": "<div class=\"ds-card\"><p>Card content</p></div>",
+      "css": ".ds-card { background: #ffffff; border: 1px solid #edf1f4; border-radius: 16px; padding: 32px; box-shadow: 0 10px 25px -10px rgb(0 0 0 / 0.05); }"
+    },
+    {
+      "name": "Tool Card (link)",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Homepage grid item linking to a tool; icon badge, name, description.",
+      "html": "<a class=\"ds-tool-card\" href=\"#\"><span class=\"ds-tool-card__icon\">▦</span><span class=\"ds-tool-card__name\">QR Code Generator</span><span class=\"ds-tool-card__desc\">Turn text, links, or WiFi credentials into a QR code.</span></a>",
+      "css": ".ds-tool-card { display: flex; flex-direction: column; gap: 12px; background: #ffffff; border: 1px solid #edf1f4; border-radius: 16px; padding: 24px; text-decoration: none; transition: border-color 0.15s, box-shadow 0.15s; } .ds-tool-card:hover { border-color: #1786f9; box-shadow: 0 4px 16px -4px rgb(23 134 249 / 0.1); } .ds-tool-card__icon { display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 12px; background: #eaf4ff; color: #0f6cd1; font-size: 1.25rem; } .ds-tool-card__name { font-weight: 700; color: #10151c; } .ds-tool-card:hover .ds-tool-card__name { color: #0f6cd1; } .ds-tool-card__desc { font-size: 0.875rem; color: #5b6672; }"
+    },
+    {
+      "name": "Segmented Toggle",
+      "kind": "chip",
+      "refersTo": "button-secondary",
+      "description": "Pill-shaped type selector (Text / URL, WiFi).",
+      "html": "<div class=\"ds-segmented\"><button class=\"ds-segmented__item ds-segmented__item--active\">Text / URL</button><button class=\"ds-segmented__item\">WiFi</button></div>",
+      "css": ".ds-segmented { display: flex; flex-wrap: wrap; gap: 8px; } .ds-segmented__item { border-radius: 9999px; padding: 6px 16px; font-size: 0.875rem; font-weight: 600; border: none; background: #f7f9fb; color: #5b6672; cursor: pointer; transition: color 0.15s; } .ds-segmented__item:hover { color: #10151c; } .ds-segmented__item--active { background: linear-gradient(to bottom right, #1786f9, #5eb0ff); color: #ffffff; box-shadow: 0 1px 3px rgb(0 0 0 / 0.08); }"
+    },
+    {
+      "name": "Top Navigation",
+      "kind": "nav",
+      "refersTo": "card",
+      "description": "Sticky top bar with the CloudTools logo image and auth-aware nav links.",
+      "html": "<header class=\"ds-nav\"><a class=\"ds-nav__logo\" href=\"#\"><img src=\"/logo-lockup.png\" alt=\"CloudTools\" class=\"ds-nav__logo-img\"/></a><nav class=\"ds-nav__links\"><a href=\"#\">Tools</a><a class=\"ds-nav__cta\" href=\"#\">Sign up</a></nav></header>",
+      "css": ".ds-nav { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 24px; background: rgba(255,255,255,0.8); backdrop-filter: blur(8px); border-bottom: 1px solid #e2e7ec; } .ds-nav__logo-img { display: block; height: 28px; width: auto; } .ds-nav__links { display: flex; align-items: center; gap: 24px; font-size: 0.875rem; font-weight: 600; } .ds-nav__links a { color: #5b6672; text-decoration: none; } .ds-nav__links a:hover { color: #10151c; } .ds-nav__cta { background: linear-gradient(to bottom right, #1786f9, #5eb0ff); color: #ffffff !important; padding: 8px 16px; border-radius: 8px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Quiet Toolbench",
+    "overview": "CloudTools looks like a well-organized workshop, not a storefront. Every surface exists to help someone finish a task in seconds — generate a code, download it, move on — so the interface stays plain, sturdy, and confident through restraint rather than decoration. A single calm, trustworthy blue, sampled directly from the CloudTools logo mark, is the only color the system spends deliberately; everything else is white space, soft neutral cards, and legible type doing the actual work. This is a utility identity, not a marketing one. It explicitly rejects the glossy SaaS-landing-page register (no big gradient hero sections, no glassmorphism, no illustration-heavy pitch energy) and the opposite failure mode of a dense enterprise dashboard (no cramped data tables, no wall-to-wall controls). As more tools join the registry, each one should feel like it was carved from the same quiet toolbench, not bolted on.",
+    "keyCharacteristics": [
+      "Calm, single-accent blue used sparingly against a near-white neutral field",
+      "Flat-leaning, restrained elevation — shadows separate, they don't decorate",
+      "Generous whitespace even as more tools and more UI are added",
+      "Quietly refined component detailing (smooth radii, considered gradients) rather than bare-framework defaults"
+    ],
+    "rules": [
+      { "name": "The One Accent Rule", "body": "Blue is the only hue in the system. Any new tool that needs a second signal color (success, warning) should reach for the neutral scale plus the existing red before introducing a new hue — CloudTools does not accumulate a rainbow of per-tool accents.", "section": "colors" },
+      { "name": "The No-Second-Typeface Rule", "body": "Every future tool uses Geist Sans for UI text. A tool that displays user data verbatim may use Geist Mono for that data only — never for labels, buttons, or headings.", "section": "typography" },
+      { "name": "The One Shadow Rule", "body": "At most one element per screen carries the tinted 'primary action' shadow. If a screen has no single primary action, no element gets it.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do keep blue as the system's only hue; reach for the neutral or red scale before introducing a new color.",
+      "Do use the gradient + tinted shadow combination only for the single primary action on a screen.",
+      "Do keep body and label text on Geist Sans; reserve Geist Mono strictly for verbatim data/code display in future tools.",
+      "Do keep forms single-column and vertically stacked, regardless of how many fields a new tool needs."
+    ],
+    "donts": [
+      "Don't introduce glassmorphism, large gradient hero sections, or illustration-heavy marketing composition — CloudTools is a toolbench, not a landing page.",
+      "Don't build dense, data-table-heavy dashboard layouts — keep spacing generous even as more saved items or tools accumulate.",
+      "Don't add a second accent color for a new tool's 'brand' — every tool shares the one blue identity.",
+      "Don't use heavy neutral drop shadows; if a surface needs to lift, use the ambient card-lift value or the accent-tinted primary-action shadow, never a generic dark shadow.",
+      "Don't recreate the logo as coded text/SVG — it's a fixed raster asset (public/logo-lockup.png)."
+    ]
+  }
+}
