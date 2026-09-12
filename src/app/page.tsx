@@ -2,6 +2,7 @@ import Link from "next/link";
 import { TOOLS } from "@/lib/tools";
 import AdSlot from "@/components/AdSlot";
 import { AD_SLOTS } from "@/lib/ads";
+import { ToolInfoSection } from "@/components/ToolInfo";
 
 export default function Home() {
   return (
@@ -32,7 +33,22 @@ export default function Home() {
         ))}
       </div>
 
-      <AdSlot slot={AD_SLOTS.homepageBottom} className="mt-12" />
+      <ToolInfoSection title="About Sky Tools">
+        <p>
+          Sky Tools is a small collection of single-purpose web tools that run entirely in your
+          browser — a QR code generator, an image and PDF converter, and more added over time. No
+          file or piece of data you type into a tool is ever uploaded to a server unless you
+          explicitly choose to save it (like adding a QR code to your account history). That's a
+          deliberate choice: most everyday conversions and generations don't need a round trip to
+          the cloud, so they don't get one here.
+        </p>
+        <p>
+          Every tool is free with no sign-up required. Creating an account is optional and only
+          useful if you want to revisit something you generated earlier.
+        </p>
+      </ToolInfoSection>
+
+      <AdSlot slot={AD_SLOTS.homepageBottom} className="mt-10" />
     </div>
   );
 }

@@ -11,6 +11,7 @@ import {
 import { renderQrToCanvas, renderQrToSvgString, type DotStyle } from "@/lib/qr-render";
 import AdSlot from "@/components/AdSlot";
 import { AD_SLOTS } from "@/lib/ads";
+import { ToolInfoSection, Faq } from "@/components/ToolInfo";
 
 const QR_TYPES: { value: QrType; label: string }[] = [
   { value: "text", label: "Text / URL" },
@@ -405,6 +406,47 @@ export default function QrGeneratorClient() {
           )}
         </div>
       </div>
+
+      <ToolInfoSection title="How this QR code generator works">
+        <p>
+          Pick a type — plain text, a link, or WiFi credentials — fill in the fields, and the QR
+          code renders instantly as you type. Nothing is sent to a server: the code, the color
+          choices, and even the optional logo are drawn entirely in your browser using the
+          canvas. That also means it works offline once the page has loaded, and your data (like
+          a WiFi password) never leaves your device unless you explicitly save it to your account
+          history.
+        </p>
+        <p>
+          Error correction controls how much of the code can be damaged, covered, or obscured (by
+          a logo, for instance) before it stops scanning reliably. Higher levels make the code
+          slightly denser but more forgiving — the generator raises it automatically when you add
+          a logo or switch to the dotted style, so scans stay reliable without you having to think
+          about it.
+        </p>
+      </ToolInfoSection>
+
+      <ToolInfoSection title="Frequently asked questions">
+        <Faq
+          items={[
+            {
+              q: "Do I need an account to generate a QR code?",
+              a: "No. Generating, previewing, and downloading a QR code as PNG or SVG all work without signing in. An account is only needed if you want to save codes to revisit later.",
+            },
+            {
+              q: "Will my WiFi password be visible in the QR code?",
+              a: "Yes — WiFi QR codes encode the network name, password, and encryption type directly, which is how a phone camera can join the network without anyone typing the password. Only share the code with people you'd trust with the password itself.",
+            },
+            {
+              q: "Can I add a logo to the center of the code?",
+              a: "Yes, under \"Logo (optional).\" The generator automatically increases error correction to keep the code scannable once part of it is covered by the logo.",
+            },
+            {
+              q: "What's the difference between PNG and SVG downloads?",
+              a: "PNG is a fixed-resolution image, good for most uses (print, messaging apps, documents). SVG is vector-based and stays sharp at any size, which is better if you plan to resize the code significantly or edit it in design software.",
+            },
+          ]}
+        />
+      </ToolInfoSection>
 
       <AdSlot slot={AD_SLOTS.toolPageBottom} className="mt-10" />
     </div>

@@ -11,6 +11,7 @@ import {
 import { getPdfPageCount, renderPdfPageToImage } from "@/lib/pdf-convert";
 import AdSlot from "@/components/AdSlot";
 import { AD_SLOTS } from "@/lib/ads";
+import { ToolInfoSection, Faq } from "@/components/ToolInfo";
 
 type Item = {
   id: string;
@@ -261,6 +262,46 @@ export default function ImageConverterClient() {
           </button>
         </div>
       </div>
+
+      <ToolInfoSection title="How this converter works">
+        <p>
+          Every conversion happens locally, using your browser&apos;s built-in image engine — no
+          file is ever uploaded to a server. For images, that means a JPG, PNG, or WebP is
+          decoded and re-encoded directly in memory; for a PDF, each page is rendered onto a
+          canvas at high resolution and then exported as its own image. Because nothing leaves
+          your device, this also works with sensitive documents you wouldn&apos;t want to upload
+          elsewhere.
+        </p>
+        <p>
+          JPG doesn&apos;t support transparency, so converting a PNG or PDF page with a
+          transparent background to JPG fills it with white first — that&apos;s expected, not a
+          bug. WebP usually gives the smallest file size at a given quality, which is why
+          it&apos;s the default.
+        </p>
+      </ToolInfoSection>
+
+      <ToolInfoSection title="Frequently asked questions">
+        <Faq
+          items={[
+            {
+              q: "Is my file uploaded anywhere?",
+              a: "No. The whole conversion — including reading a PDF's pages — runs in your browser using JavaScript and the Canvas API. Nothing is sent over the network.",
+            },
+            {
+              q: "Which format should I pick?",
+              a: "WebP for the smallest file size at good quality (most modern apps and browsers support it). JPG for maximum compatibility with older software. PNG when you need transparency or lossless quality, e.g. for logos or screenshots.",
+            },
+            {
+              q: "Can I convert a multi-page PDF?",
+              a: "Yes — each page becomes its own separate image, listed individually with its own download button, plus a \"Download all\" option for the whole set.",
+            },
+            {
+              q: "Why did my PNG get bigger after converting to JPG?",
+              a: "JPG compression is tuned for photos with smooth color gradients; flat-color or text-heavy images (like screenshots or logos) can sometimes compress worse than PNG's lossless format. Try WebP or PNG instead if that happens.",
+            },
+          ]}
+        />
+      </ToolInfoSection>
 
       <AdSlot slot={AD_SLOTS.toolPageBottom} className="mt-10" />
     </div>
