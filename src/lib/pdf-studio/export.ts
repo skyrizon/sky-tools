@@ -13,7 +13,7 @@ import {
 import fontkit from "@pdf-lib/fontkit";
 import { applyFormValues } from "@/lib/pdf-studio/forms";
 import { applyMetadata } from "@/lib/pdf-studio/metadata";
-import { FALLBACK_FONT, ITALIC_SKEW, fontBytes, type StudioFontId } from "@/lib/pdf-studio/fonts";
+import { ITALIC_SKEW, fallbackFont, fontBytes, type StudioFontId } from "@/lib/pdf-studio/fonts";
 import {
   displaySize,
   hexToRgb,
@@ -49,6 +49,8 @@ type ResolvedFont = {
   synthBold: boolean;
   /** Whether every visible character of the text has a glyph in this font. */
   covers(text: string): boolean;
+  /** Whether the font has a glyph for this exact character (spaces included). */
+  has(ch: string): boolean;
 };
 
 type Fonts = { get(font: StudioFontId | undefined, bold: boolean, italic?: boolean): Promise<ResolvedFont> };
@@ -66,16 +68,30 @@ async function drawAnnotation(
 
   switch (ann.type) {
     case "text": {
-      let resolved = await fonts.get(ann.font ?? "plex", ann.bold, !!ann.italic);
-      // A font without glyphs for this text (e.g. Thai in a Latin-only font) falls back to Sarabun.
-      if (!resolved.covers(ann.text)) resolved = await fonts.get(FALLBACK_FONT, ann.bold, !!ann.italic);
-      const { font, synthItalic, synthBold } = resolved;
-      const lines = ann.text.split("\n");
-      const widths = lines.map((line) => font.widthOfTextAtSize(line, ann.size));
+      const primary = await fonts.get(ann.font ?? "plex", ann.bold, !!ann.italic);
+      // Characters the font lacks (e.g. Thai in a Latin-only font, or letters missing from
+      // a PDF's font subset) use the fallback font, the same way the browser shows them.
+      const needsFallback = [...ann.text].some((ch) => ch !== "\n" && !primary.has(ch));
+      const fallback = needsFallback ? await fonts.get(fallbackFont(ann.font), ann.bold, !!ann.italic) : primary;
+      const segmentsOf = (line: string) => {
+        const segments: { text: string; font: ResolvedFont }[] = [];
+        for (const ch of line) {
+          const last = segments[segments.length - 1];
+          // Fonts from a PDF are subsets that may even lack the space character.
+          const font = primary.has(ch) || (/\s/.test(ch) && !fallback.has(ch)) ? primary : fallback;
+          if (last?.font === font) last.text += ch;
+          else segments.push({ text: ch, font });
+        }
+        return segments;
+      };
+      const lines = ann.text.split("\n").map(segmentsOf);
+      const widths = lines.map((line) =>
+        line.reduce((sum, seg) => sum + seg.font.font.widthOfTextAtSize(seg.text, ann.size), 0),
+      );
       const blockWidth = Math.max(...widths, 0);
       const r = (normalizeRotation(rotation) * Math.PI) / 180;
       lines.forEach((line, i) => {
-        if (!line) return;
+        if (line.length === 0) return;
         const offset =
           ann.align === "center" ? (blockWidth - widths[i]) / 2 : ann.align === "right" ? blockWidth - widths[i] : 0;
         const x = ann.x + offset;
@@ -87,16 +103,20 @@ async function drawAnnotation(
           pushGraphicsState(),
           concatTransformationMatrix(Math.cos(r), Math.sin(r), -Math.sin(r), Math.cos(r), origin.x, origin.y),
         );
-        const passes = synthBold ? [0, ann.size * 0.03] : [0];
-        for (const dx of passes) {
-          page.drawText(line, {
-            x: dx,
-            y: 0,
-            size: ann.size,
-            font,
-            color: color(ann.color),
-            ySkew: synthItalic ? degrees(ITALIC_SKEW) : undefined,
-          });
+        let segX = 0;
+        for (const { text, font: { font, synthBold, synthItalic } } of line) {
+          const passes = synthBold ? [0, ann.size * 0.03] : [0];
+          for (const dx of passes) {
+            page.drawText(text, {
+              x: segX + dx,
+              y: 0,
+              size: ann.size,
+              font,
+              color: color(ann.color),
+              ySkew: synthItalic ? degrees(ITALIC_SKEW) : undefined,
+            });
+          }
+          segX += font.widthOfTextAtSize(text, ann.size);
         }
         page.pushOperators(popGraphicsState());
         if (ann.underline) {
@@ -212,17 +232,23 @@ export async function exportStudioPdf({
         embedded.set(
           key,
           (async () => {
-            const { bytes, synthItalic, synthBold } = await fontBytes(font, bold, italic);
+            const { bytes: original, synthItalic, synthBold } = await fontBytes(font, bold, italic);
+            // fontkit reads past the end of the font when its last glyph is empty (e.g. Arimo)
+            // and pdf-lib then fails to save; trailing padding keeps that read in bounds.
+            const bytes = new Uint8Array(original.byteLength + 64);
+            bytes.set(new Uint8Array(original));
             // Embedded whole: pdf-lib's subsetting drops glyphs for some fonts (e.g. Kanit),
-            // and chosen/uploaded fonts can be anything.
-            const pdfFont = await out.embedFont(bytes, { subset: false });
-            const parsed = fontkit.create(new Uint8Array(bytes));
+            // and chosen/uploaded fonts can be anything. Fonts taken from a PDF are the
+            // exception: they are already subsets whose unused glyphs can't be read whole.
+            const pdfFont = await out.embedFont(bytes, { subset: !!font?.startsWith("pdf:") });
+            const parsed = fontkit.create(bytes);
             return {
               font: pdfFont,
               synthItalic,
               synthBold,
               covers: (text: string) =>
                 [...text].every((ch) => /\s/.test(ch) || parsed.hasGlyphForCodePoint(ch.codePointAt(0)!)),
+              has: (ch: string) => parsed.hasGlyphForCodePoint(ch.codePointAt(0)!),
             };
           })(),
         );

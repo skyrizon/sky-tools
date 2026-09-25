@@ -2,9 +2,10 @@ import { NextResponse } from "next/server";
 
 const DAY = 60 * 60 * 24;
 
-// An older browser user agent makes Google Fonts answer with one complete WOFF
-// file per style (no unicode-range splitting), which pdf-lib can embed whole.
-const WOFF_USER_AGENT = "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:27.0) Gecko/20100101 Firefox/27.0";
+// A non-browser user agent makes Google Fonts answer with one complete, static
+// TrueType file per style (no unicode-range splitting, no variable fonts), which
+// pdf-lib reads more reliably than WOFF.
+const TTF_USER_AGENT = "Wget/1.21";
 
 const VARIANTS = {
   regular: "wght@400",
@@ -15,7 +16,7 @@ const VARIANTS = {
 
 async function variantUrl(family: string, axis: string): Promise<string | null> {
   const url = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family).replace(/%20/g, "+")}:${axis}`;
-  const res = await fetch(url, { headers: { "User-Agent": WOFF_USER_AGENT }, next: { revalidate: DAY } });
+  const res = await fetch(url, { headers: { "User-Agent": TTF_USER_AGENT }, next: { revalidate: DAY } });
   if (!res.ok) return null; // this family has no such style
   const css = await res.text();
   return /src:\s*url\((https:\/\/fonts\.gstatic\.com\/[^)]+)\)/.exec(css)?.[1] ?? null;

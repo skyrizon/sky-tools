@@ -49,7 +49,7 @@ import type { Dictionary } from "@/dictionaries";
 import { format as fill } from "@/lib/i18n";
 import { saveBlob, zipFiles } from "@/lib/files";
 import { baseName } from "@/lib/image-convert";
-import { getPdfPageSizes, getTextRuns, releasePdf, renderPdfPageToImage, type TextRun } from "@/lib/pdf-convert";
+import { getPdfFont, getPdfPageSizes, getTextRuns, releasePdf, renderPdfPageToImage, type TextRun } from "@/lib/pdf-convert";
 import { sampleTextColors } from "@/lib/pdf-studio/sample-colors";
 import { PdfToolError, pdfPageCount } from "@/lib/pdf-tools";
 import { exportStudioPdf } from "@/lib/pdf-studio/export";
@@ -70,7 +70,7 @@ import PageEditor, { type PendingImage, type StyleState } from "./studio/PageEdi
 import PageOrganizer from "./studio/PageOrganizer";
 import PageThumb from "./studio/PageThumb";
 import TextProps, { type TextStyle } from "./studio/TextProps";
-import { DEFAULT_FONT, matchFont } from "@/lib/pdf-studio/fonts";
+import { DEFAULT_FONT, fontForPdfText, matchFont } from "@/lib/pdf-studio/fonts";
 import { DEFAULT_LINE_HEIGHT } from "@/lib/pdf-studio/types";
 import SignatureDialog, { type SignatureImage } from "./studio/SignatureDialog";
 
@@ -607,9 +607,14 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
 
   async function editRun(page: StudioPage, run: TextRun) {
     const image = previews[sourceKey(page)] || thumbs[sourceKey(page)];
-    const colors = image
-      ? await sampleTextColors(image, page.size, run)
-      : { background: "#ffffff", foreground: "#000000" };
+    const original = getPdfFont(page.file, run.fontKey);
+    const [colors, match] = await Promise.all([
+      image ? sampleTextColors(image, page.size, run) : { background: "#ffffff", foreground: "#000000" },
+      // Keep the look of the original text: its own font when possible.
+      original
+        ? fontForPdfText(original, run.text).catch(() => ({ font: matchFont(run.fontName), ownStyle: false }))
+        : { font: matchFont(run.fontName), ownStyle: false },
+    ]);
     const pad = Math.max(1, run.size * 0.12);
     const cover: Annotation = {
       type: "rect",
@@ -634,9 +639,9 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
       text: run.text,
       size: Math.round(run.size * 10) / 10,
       color: colors.foreground,
-      bold: run.bold,
-      font: matchFont(run.fontName),
-      italic: /italic|oblique/i.test(run.fontName),
+      bold: !match.ownStyle && run.bold,
+      font: match.font,
+      italic: !match.ownStyle && /italic|oblique/i.test(run.fontName),
       underline: false,
       align: "left",
       lineHeight: DEFAULT_LINE_HEIGHT,

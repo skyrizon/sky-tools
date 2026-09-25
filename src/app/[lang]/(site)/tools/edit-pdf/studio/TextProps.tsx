@@ -112,10 +112,11 @@ export default function TextProps({
   const label = "flex flex-col gap-1 text-xs font-semibold text-muted";
   return (
     <div className="flex flex-col gap-3">
-      <label className={label}>
+      {/* Not a <label>: a click anywhere in the open font menu would toggle it shut. */}
+      <div className={label}>
         {t.font}
         {fontSelect}
-      </label>
+      </div>
       <div className="flex flex-wrap items-end gap-3">
         <div className={label}>
           {t.size}

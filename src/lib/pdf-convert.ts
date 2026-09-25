@@ -25,7 +25,8 @@ async function openPdf(file: File): Promise<PDFDocumentProxy> {
   let task = openDocs.get(file);
   if (!task) {
     ensureWorker();
-    task = file.arrayBuffer().then((buffer) => getDocument({ data: buffer }));
+    // fontExtraProperties keeps each embedded font's file, so Edit text can reuse it.
+    task = file.arrayBuffer().then((buffer) => getDocument({ data: buffer, fontExtraProperties: true }));
     openDocs.set(file, task);
   }
   try {
@@ -60,7 +61,19 @@ export type TextRun = {
   bold: boolean;
   /** The original font's name (e.g. "Helvetica-Bold"), for picking a similar font. */
   fontName: string;
+  /** pdf.js's id for the font, for looking up its file with getPdfFont. */
+  fontKey: string;
 };
+
+/** A font used by a PDF's text: its name and, when embedded, its file (as OpenType). */
+export type PdfFontInfo = { name: string; data: Uint8Array | null; bold: boolean; italic: boolean };
+
+const pdfFonts = new WeakMap<File, Map<string, PdfFontInfo>>();
+
+/** The font behind a text run, once getTextRuns has read that run's page. */
+export function getPdfFont(file: File, fontKey: string): PdfFontInfo | null {
+  return pdfFonts.get(file)?.get(fontKey) ?? null;
+}
 
 type PdfTextItem = { str: string; transform: number[]; width: number; fontName: string; hasEOL?: boolean };
 
@@ -78,21 +91,37 @@ export async function getTextRuns(file: File, pageIndex: number): Promise<TextRu
   // Loading the operator list makes pdf.js resolve the page's fonts, whose real
   // names (e.g. "Helvetica-Bold") tell us which text is bold.
   await page.getOperatorList();
-  const realNames = new Map<string, string>();
+  if (!pdfFonts.has(file)) pdfFonts.set(file, new Map());
+  const fonts = pdfFonts.get(file)!;
   const realName = (fontName: string) => {
-    if (!realNames.has(fontName)) {
-      let name = "";
+    if (!fonts.has(fontName)) {
+      let info: PdfFontInfo = { name: "", data: null, bold: false, italic: false };
       try {
-        if (page.commonObjs.has(fontName)) name = (page.commonObjs.get(fontName) as { name?: string })?.name ?? "";
+        if (page.commonObjs.has(fontName)) {
+          const font = page.commonObjs.get(fontName) as {
+            name?: string;
+            data?: Uint8Array;
+            missingFile?: boolean;
+            bold?: boolean;
+            italic?: boolean;
+            isType3Font?: boolean;
+          };
+          info = {
+            name: font?.name ?? "",
+            data: font?.data && !font.missingFile && !font.isType3Font ? font.data.slice() : null,
+            bold: !!font?.bold,
+            italic: !!font?.italic,
+          };
+        }
       } catch {
         // Font not available; treat as unknown.
       }
-      realNames.set(fontName, name);
+      fonts.set(fontName, info);
     }
-    return realNames.get(fontName)!;
+    return fonts.get(fontName)!.name;
   };
 
-  const pieces: { text: string; x: number; baseline: number; w: number; size: number; bold: boolean; fontName: string }[] = [];
+  const pieces: { text: string; x: number; baseline: number; w: number; size: number; bold: boolean; fontName: string; fontKey: string }[] = [];
   for (const raw of content.items as PdfTextItem[]) {
     if (!("str" in raw) || !raw.str) continue;
     const [a, b, c, d, e, f] = raw.transform;
@@ -106,7 +135,7 @@ export async function getTextRuns(file: File, pageIndex: number): Promise<TextRu
     if (Math.abs(tb) > 0.01 * Math.abs(ta) || ta <= 0) continue; // not left-to-right horizontal
     const size = Math.hypot(tc, td);
     if (size < 1) continue;
-    pieces.push({ text: raw.str, x: tx, baseline: ty, w: raw.width * (ta / Math.hypot(a, b) || 1), size, bold: /bold|black|heavy|semibold|demi/i.test(realName(raw.fontName)), fontName: realName(raw.fontName) });
+    pieces.push({ text: raw.str, x: tx, baseline: ty, w: raw.width * (ta / Math.hypot(a, b) || 1), size, bold: /bold|black|heavy|semibold|demi/i.test(realName(raw.fontName)), fontName: realName(raw.fontName), fontKey: raw.fontName });
   }
 
   // Merge pieces that sit on the same baseline and follow each other closely.
@@ -128,6 +157,7 @@ export async function getTextRuns(file: File, pageIndex: number): Promise<TextRu
       size: line.size,
       bold: line.bold,
       fontName: line.fontName,
+      fontKey: line.fontKey,
     });
   };
   for (const piece of pieces) {

@@ -157,9 +157,15 @@ export default function FontPicker({
 
       {open && (
         <div
+          ref={(el) => el?.scrollIntoView({ block: "nearest" })}
           role="dialog"
           aria-label={t.label}
-          className="fixed inset-x-2 bottom-2 z-50 flex max-h-[70dvh] flex-col overflow-hidden rounded-2xl border border-border bg-background-raised shadow-2xl lg:absolute lg:inset-x-auto lg:bottom-auto lg:left-0 lg:top-full lg:mt-1 lg:max-h-[26rem] lg:w-80"
+          className={
+            compact
+              ? "fixed inset-x-2 bottom-2 z-50 flex max-h-[70dvh] flex-col overflow-hidden rounded-2xl border border-border bg-background-raised shadow-2xl lg:absolute lg:inset-x-auto lg:bottom-auto lg:left-0 lg:top-full lg:mt-1 lg:max-h-[26rem] lg:w-80"
+              : // In a side panel the menu opens in place: a floating menu would be cut off by the panel's scrolling.
+                "mt-1 flex h-[26rem] max-h-[65dvh] flex-col overflow-hidden rounded-xl border border-border bg-background-raised shadow-lg"
+          }
         >
           <div className="border-b border-border p-2">
             <div className="flex items-center gap-2 rounded-lg border border-border px-2.5 focus-within:border-accent">
@@ -237,6 +243,8 @@ export default function FontPicker({
               );
             })}
             {list && google.length === MAX_RESULTS && <p className="px-2.5 py-2 text-xs text-muted">{t.refine}</p>}
+            {/* Narrow side panel: the note goes at the end of the list to leave room for fonts. */}
+            {!compact && <p className="px-2.5 pb-1 pt-3 text-[11px] leading-snug text-muted">{t.sarabunNote}</p>}
           </div>
 
           <div className="border-t border-border p-2">
@@ -246,7 +254,7 @@ export default function FontPicker({
               {t.upload}
               <input type="file" accept=".ttf,.otf,.woff,font/ttf,font/otf,font/woff" className="hidden" onChange={(e) => void upload(e.target.files?.[0])} />
             </label>
-            <p className="mt-1.5 text-[11px] leading-snug text-muted">{t.sarabunNote}</p>
+            {compact && <p className="mt-1.5 text-[11px] leading-snug text-muted">{t.sarabunNote}</p>}
           </div>
         </div>
       )}
