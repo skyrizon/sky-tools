@@ -30,6 +30,7 @@ import {
   Signature,
   Square,
   SquareDashed,
+  TextCursorInput,
   Trash2,
   Type,
   Undo2,
@@ -41,7 +42,8 @@ import type { Dictionary } from "@/dictionaries";
 import { format as fill } from "@/lib/i18n";
 import { saveBlob, zipFiles } from "@/lib/files";
 import { baseName } from "@/lib/image-convert";
-import { getPdfPageSizes, releasePdf, renderPdfPageToImage } from "@/lib/pdf-convert";
+import { getPdfPageSizes, getTextRuns, releasePdf, renderPdfPageToImage, type TextRun } from "@/lib/pdf-convert";
+import { sampleTextColors } from "@/lib/pdf-studio/sample-colors";
 import { PdfToolError, pdfPageCount } from "@/lib/pdf-tools";
 import { exportStudioPdf } from "@/lib/pdf-studio/export";
 import { readFormFields } from "@/lib/pdf-studio/forms";
@@ -73,6 +75,7 @@ const newId = () => Math.random().toString(36).slice(2, 10);
 
 const TOOLS: { tool: Tool; icon: LucideIcon; key?: string }[] = [
   { tool: "select", icon: MousePointer2, key: "v" },
+  { tool: "editText", icon: TextCursorInput, key: "e" },
   { tool: "text", icon: Type, key: "t" },
   { tool: "signature", icon: Signature },
   { tool: "image", icon: ImagePlus },
@@ -114,6 +117,8 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
   const [thumbs, setThumbs] = useState<Record<string, string>>({});
   const [previews, setPreviews] = useState<Record<string, string>>({});
   const [organizerOpen, setOrganizerOpen] = useState(false);
+  const [textRuns, setTextRuns] = useState<Record<string, TextRun[]>>({});
+  const loadingRuns = useRef<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [exportFormat, setExportFormat] = useState<"image/jpeg" | "image/png">("image/jpeg");
@@ -279,6 +284,21 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
     return () => root.removeEventListener("scroll", onScroll);
   }, [pageIdsKey]);
 
+  useEffect(() => {
+    if (tool !== "editText" || loadingRuns.current) return;
+    const wanted = [current, ...pages.filter((p) => visibleIds.includes(p.id))].filter(Boolean) as StudioPage[];
+    const next = wanted.find((p) => textRuns[sourceKey(p)] === undefined);
+    if (!next) return;
+    const key = sourceKey(next);
+    loadingRuns.current = key;
+    getTextRuns(next.file, next.index)
+      .catch(() => [] as TextRun[])
+      .then((runs) => {
+        loadingRuns.current = null;
+        setTextRuns((prev) => ({ ...prev, [key]: runs }));
+      });
+  }, [tool, current, pages, visibleIds, textRuns]);
+
   // Ctrl/⌘ + mouse wheel zooms the canvas.
   useEffect(() => {
     const el = scrollRef.current;
@@ -424,11 +444,57 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
     setTimeout(() => scrollToPage(id), 50);
   }
 
+  async function editRun(page: StudioPage, run: TextRun) {
+    const image = previews[sourceKey(page)] || thumbs[sourceKey(page)];
+    const colors = image
+      ? await sampleTextColors(image, page.size, run)
+      : { background: "#ffffff", foreground: "#000000" };
+    const pad = Math.max(1, run.size * 0.12);
+    const cover: Annotation = {
+      type: "rect",
+      id: newId(),
+      x: run.x - pad,
+      y: run.y - pad,
+      w: run.w + pad * 2,
+      h: run.h + pad * 2,
+      stroke: null,
+      fill: colors.background,
+      strokeWidth: 0,
+      opacity: 1,
+      role: "whiteout",
+      replaces: run.id,
+    };
+    const text: Annotation = {
+      type: "text",
+      id: newId(),
+      x: run.x,
+      // Our text layout puts the first baseline at 0.95 × size below the box top.
+      y: run.baseline - run.size * 0.95,
+      text: run.text,
+      size: Math.round(run.size * 10) / 10,
+      color: colors.foreground,
+      bold: run.bold,
+      replaces: run.id,
+    };
+    beginChange();
+    updatePageById(page.id, (p) => ({ ...p, annotations: [...p.annotations, cover, text] }));
+    setCurrentId(page.id);
+    selectAnn(text.id);
+    setEditingId(text.id);
+  }
+
   // ----- annotation actions -----
   const deleteAnn = useCallback(() => {
     if (!selectedAnnId) return;
     beginChange();
-    updateCurrent((p) => ({ ...p, annotations: p.annotations.filter((a) => a.id !== selectedAnnId) }));
+    updateCurrent((p) => {
+      const target = p.annotations.find((a) => a.id === selectedAnnId);
+      const pair = target && "replaces" in target ? target.replaces : undefined;
+      return {
+        ...p,
+        annotations: p.annotations.filter((a) => a.id !== selectedAnnId && !(pair && "replaces" in a && a.replaces === pair)),
+      };
+    });
     setSelectedAnnId(null);
   }, [beginChange, selectedAnnId, updateCurrent]);
 
@@ -674,7 +740,7 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
         ? selectedAnn.role ?? selectedAnn.type
         : selectedAnn.type
       : tool;
-  const showColor = !["select", "crop", "image", "signature", "whiteout", "highlighter"].includes(styleTarget ?? "") && styleTarget !== "image";
+  const showColor = !["select", "editText", "crop", "image", "signature", "whiteout", "highlighter"].includes(styleTarget ?? "");
   const showWidth = ["pen", "highlighter", "rect", "ellipse", "line", "arrow", "ink"].includes(styleTarget ?? "");
   const showFont = styleTarget === "text";
   const showFill = styleTarget === "rect" || styleTarget === "ellipse";
@@ -904,6 +970,8 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
                           pageNumber={i + 1}
                           pageTotal={pages.length}
                           newTextLabel={t.newText}
+                          textRuns={tool === "editText" ? textRuns[sourceKey(page)] : undefined}
+                          onEditRun={(run) => void editRun(page, run)}
                         />
                       </div>
                       <span className="text-xs font-semibold text-muted">{i + 1}</span>

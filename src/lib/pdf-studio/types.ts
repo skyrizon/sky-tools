@@ -15,6 +15,8 @@ export type TextAnnotation = {
   size: number;
   color: string;
   bold: boolean;
+  /** Set when this text replaces a line of the original PDF (id of that line). */
+  replaces?: string;
 };
 
 export type ImageAnnotation = {
@@ -42,6 +44,8 @@ export type BoxAnnotation = {
   opacity: number;
   /** Marks white-out and highlight boxes so the UI can label them. */
   role?: "whiteout" | "highlight";
+  /** Set on the cover box of an edited original line (id of that line). */
+  replaces?: string;
 };
 
 export type LineAnnotation = {
@@ -104,6 +108,7 @@ export type DocOptions = {
 
 export type Tool =
   | "select"
+  | "editText"
   | "text"
   | "signature"
   | "image"

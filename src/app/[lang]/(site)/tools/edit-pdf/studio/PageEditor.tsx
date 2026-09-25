@@ -2,6 +2,7 @@
 
 import { useRef } from "react";
 import { pageNumberLabel } from "@/lib/pdf-studio/export";
+import type { TextRun } from "@/lib/pdf-convert";
 import {
   textLineHeight,
   type Annotation,
@@ -73,6 +74,8 @@ export default function PageEditor({
   pageNumber,
   pageTotal,
   newTextLabel,
+  textRuns,
+  onEditRun,
 }: {
   page: StudioPage;
   imageUrl?: string;
@@ -100,6 +103,9 @@ export default function PageEditor({
   pageNumber: number;
   pageTotal: number;
   newTextLabel: string;
+  /** Lines of original text, shown as click targets by the Edit text tool. */
+  textRuns?: TextRun[];
+  onEditRun?: (run: TextRun) => void;
 }) {
   const frameRef = useRef<HTMLDivElement>(null);
   const drag = useRef<Drag | null>(null);
@@ -142,14 +148,22 @@ export default function PageEditor({
     const annId = target.closest("[data-ann-id]")?.getAttribute("data-ann-id");
     const existing = annId ? page.annotations.find((a) => a.id === annId) : undefined;
 
-    if (tool === "select" || (tool === "text" && existing?.type === "text")) {
+    if (tool === "editText" && !existing) {
+      const runId = target.closest("[data-run-id]")?.getAttribute("data-run-id");
+      const run = textRuns?.find((r) => r.id === runId);
+      if (run) onEditRun?.(run);
+      else onSelect(null);
+      return;
+    }
+
+    if (tool === "select" || ((tool === "text" || tool === "editText") && existing?.type === "text")) {
       if (handle && selectedId) {
         const original = page.annotations.find((a) => a.id === selectedId)!;
         beginChange();
         drag.current = { mode: "resize", start: pt, original, handle };
       } else if (existing) {
         onSelect(existing.id);
-        if (tool === "text") {
+        if (tool === "text" || tool === "editText") {
           beginChange();
           onEditingChange(existing.id);
           return;
@@ -287,7 +301,7 @@ export default function PageEditor({
   const pad = 4 / scale;
   const handleSize = 8 / scale;
   const cursor =
-    tool === "select" ? "default" : tool === "text" ? "text" : (tool === "image" || tool === "signature") && !pendingImage ? "not-allowed" : "crosshair";
+    tool === "select" ? "default" : tool === "text" || tool === "editText" ? "text" : (tool === "image" || tool === "signature") && !pendingImage ? "not-allowed" : "crosshair";
 
   const { watermark, pageNumbers } = docOptions;
   const theta = (Math.atan2(finalH, finalW) * 180) / Math.PI;
@@ -342,7 +356,29 @@ export default function PageEditor({
                 }
               }}
             >
-              <AnnotationShapes annotations={page.annotations} hiddenId={editing?.id} interactive={tool === "select" || tool === "text"} />
+              {tool === "editText" &&
+                textRuns
+                  ?.filter((run) => !page.annotations.some((a) => "replaces" in a && a.replaces === run.id))
+                  .map((run) => (
+                    <rect
+                      key={run.id}
+                      data-run-id={run.id}
+                      x={run.x - 1}
+                      y={run.y - 1}
+                      width={run.w + 2}
+                      height={run.h + 2}
+                      rx={1.5}
+                      className="cursor-text fill-accent/5 stroke-accent/50 transition-colors hover:fill-accent/20"
+                      strokeWidth={0.8}
+                      strokeDasharray="3 2"
+                    />
+                  ))}
+
+              <AnnotationShapes
+                annotations={page.annotations}
+                hiddenId={editing?.id}
+                interactive={tool === "select" || tool === "text" || tool === "editText"}
+              />
 
               {page.crop && (
                 <>

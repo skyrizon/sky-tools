@@ -70,9 +70,9 @@ const en = {
     "edit-pdf": {
       name: "Edit PDF",
       description: "Add text and signatures, draw, highlight, fill forms, and organize pages in PDF Studio.",
-      seoTitle: "Edit PDF Online Free — Add Text, Sign, Fill & Organize",
+      seoTitle: "Edit PDF Online Free — Edit Text, Sign, Fill & Organize",
       metaDescription:
-        "Edit PDFs in your browser: add text and signatures, draw, highlight, white-out, fill forms, add watermarks and page numbers, and reorder pages. Free, no upload.",
+        "Edit PDFs in your browser: change existing text, add text and signatures, draw, highlight, fill forms, add watermarks and page numbers, and reorder pages. Free, no upload.",
     },
     "pdf-merge": {
       name: "Merge PDF",
@@ -361,6 +361,7 @@ const en = {
       title: "Edit your PDF in PDF Studio",
       body: "PDF Studio opens full screen in a new tab — add text and signatures, draw, highlight, fill forms, and organize pages, all in your browser.",
       features: [
+        "Edit existing text in the PDF",
         "Add text, signatures, images, and shapes",
         "Draw, highlight, and white-out",
         "Fill in PDF forms",
@@ -386,7 +387,7 @@ const en = {
     faq: [
       {
         q: "Can I change the text that's already in the PDF?",
-        a: "Existing text can't be edited directly. The usual way is to cover it with the White-out tool and type the new text on top with the Text tool.",
+        a: "Yes. Choose Edit text and click a line: it becomes editable in the same position, size, and color. Behind the scenes the original line is covered with the page's background color and your text is written on top, so the font may look slightly different, and the original is still in the file underneath. Delete your edited text to bring the original back.",
       },
       {
         q: "Does White-out remove the content underneath?",
@@ -451,6 +452,7 @@ const en = {
       },
       tools: {
         select: "Select",
+        editText: "Edit text",
         text: "Text",
         signature: "Sign",
         image: "Image",
@@ -466,6 +468,7 @@ const en = {
       },
       hints: {
         select: "Click something you added to move, resize, or change it.",
+        editText: "Click any line of text in the PDF to change it.",
         text: "Click on the page where the text should go.",
         signature: "Create a signature, then click the page to place it.",
         image: "Choose an image, then click the page to place it.",
@@ -565,7 +568,7 @@ const en = {
       },
       shortcutsTitle: "Keyboard shortcuts",
       shortcuts: [
-        ["V · T · D", "Select / Text / Draw"],
+        ["V · E · T · D", "Select / Edit text / Text / Draw"],
         ["P", "Organize pages"],
         ["← →", "Previous / next page"],
         ["R  ·  Shift+R", "Rotate page right / left"],
