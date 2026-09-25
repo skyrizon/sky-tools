@@ -14,6 +14,7 @@ import fontkit from "@pdf-lib/fontkit";
 import { applyFormValues } from "@/lib/pdf-studio/forms";
 import { applyMetadata } from "@/lib/pdf-studio/metadata";
 import { ITALIC_SKEW, fallbackFont, fontBytes, type StudioFontId } from "@/lib/pdf-studio/fonts";
+import { styledLines, type RunStyle, type StyledRun } from "@/lib/pdf-studio/rich-text";
 import {
   displaySize,
   hexToRgb,
@@ -68,26 +69,29 @@ async function drawAnnotation(
 
   switch (ann.type) {
     case "text": {
-      const primary = await fonts.get(ann.font ?? "plex", ann.bold, !!ann.italic);
-      // Characters the font lacks (e.g. Thai in a Latin-only font, or letters missing from
-      // a PDF's font subset) use the fallback font, the same way the browser shows them.
-      const needsFallback = [...ann.text].some((ch) => ch !== "\n" && !primary.has(ch));
-      const fallback = needsFallback ? await fonts.get(fallbackFont(ann.font), ann.bold, !!ann.italic) : primary;
-      const segmentsOf = (line: string) => {
-        const segments: { text: string; font: ResolvedFont }[] = [];
-        for (const ch of line) {
-          const last = segments[segments.length - 1];
-          // Fonts from a PDF are subsets that may even lack the space character.
-          const font = primary.has(ch) || (/\s/.test(ch) && !fallback.has(ch)) ? primary : fallback;
-          if (last?.font === font) last.text += ch;
-          else segments.push({ text: ch, font });
+      // Each run of one formatting (bold, italic, color…) resolves its own font. Characters
+      // the font lacks (e.g. Thai in a Latin-only font, or letters missing from a PDF's
+      // font subset) use the fallback font, the same way the browser shows them.
+      type Segment = { text: string; font: ResolvedFont; style: RunStyle };
+      const segmentsOf = async (runs: StyledRun[]) => {
+        const segments: Segment[] = [];
+        for (const { text, style } of runs) {
+          const primary = await fonts.get(ann.font ?? "plex", style.bold, style.italic);
+          const needsFallback = [...text].some((ch) => !primary.has(ch));
+          const fallback = needsFallback ? await fonts.get(fallbackFont(ann.font), style.bold, style.italic) : primary;
+          for (const ch of text) {
+            const last = segments[segments.length - 1];
+            // Fonts from a PDF are subsets that may even lack the space character.
+            const font = primary.has(ch) || (/\s/.test(ch) && !fallback.has(ch)) ? primary : fallback;
+            if (last?.font === font && last.style === style) last.text += ch;
+            else segments.push({ text: ch, font, style });
+          }
         }
         return segments;
       };
-      const lines = ann.text.split("\n").map(segmentsOf);
-      const widths = lines.map((line) =>
-        line.reduce((sum, seg) => sum + seg.font.font.widthOfTextAtSize(seg.text, ann.size), 0),
-      );
+      const lines = await Promise.all(styledLines(ann).map(segmentsOf));
+      const widthOf = (seg: Segment) => seg.font.font.widthOfTextAtSize(seg.text, ann.size);
+      const widths = lines.map((line) => line.reduce((sum, seg) => sum + widthOf(seg), 0));
       const blockWidth = Math.max(...widths, 0);
       const r = (normalizeRotation(rotation) * Math.PI) / 180;
       lines.forEach((line, i) => {
@@ -104,28 +108,32 @@ async function drawAnnotation(
           concatTransformationMatrix(Math.cos(r), Math.sin(r), -Math.sin(r), Math.cos(r), origin.x, origin.y),
         );
         let segX = 0;
-        for (const { text, font: { font, synthBold, synthItalic } } of line) {
+        const underlines: { from: number; to: number; color: string }[] = [];
+        for (const seg of line) {
+          const { font, synthBold, synthItalic } = seg.font;
           const passes = synthBold ? [0, ann.size * 0.03] : [0];
           for (const dx of passes) {
-            page.drawText(text, {
+            page.drawText(seg.text, {
               x: segX + dx,
               y: 0,
               size: ann.size,
               font,
-              color: color(ann.color),
+              color: color(seg.style.color),
               ySkew: synthItalic ? degrees(ITALIC_SKEW) : undefined,
             });
           }
-          segX += font.widthOfTextAtSize(text, ann.size);
+          const width = widthOf(seg);
+          if (seg.style.underline) underlines.push({ from: segX, to: segX + width, color: seg.style.color });
+          segX += width;
         }
         page.pushOperators(popGraphicsState());
-        if (ann.underline) {
-          const y = baseline + ann.size * 0.12;
+        const y = baseline + ann.size * 0.12;
+        for (const u of underlines) {
           page.drawLine({
-            start: toPdf(x, y, box, rotation),
-            end: toPdf(x + widths[i], y, box, rotation),
+            start: toPdf(x + u.from, y, box, rotation),
+            end: toPdf(x + u.to, y, box, rotation),
             thickness: Math.max(0.5, ann.size * 0.06),
-            color: color(ann.color),
+            color: color(u.color),
           });
         }
       });

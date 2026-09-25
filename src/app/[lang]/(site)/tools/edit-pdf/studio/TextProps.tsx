@@ -98,9 +98,15 @@ export default function TextProps({
     </div>
   );
 
+  // Buttons don't take focus, so text being edited keeps its selection and formatting
+  // applies to the selected characters. data-text-format marks these controls for the editor.
+  const keepFocus = (e: React.MouseEvent) => {
+    if ((e.target as Element).closest("button")) e.preventDefault();
+  };
+
   if (compact) {
     return (
-      <div className="flex shrink-0 items-center gap-1.5 lg:flex-wrap">
+      <div data-text-format onMouseDown={keepFocus} className="flex shrink-0 items-center gap-1.5 lg:flex-wrap">
         {fontSelect}
         {sizeControl}
         {styleButtons}
@@ -111,7 +117,7 @@ export default function TextProps({
 
   const label = "flex flex-col gap-1 text-xs font-semibold text-muted";
   return (
-    <div className="flex flex-col gap-3">
+    <div data-text-format onMouseDown={keepFocus} className="flex flex-col gap-3">
       {/* Not a <label>: a click anywhere in the open font menu would toggle it shut. */}
       <div className={label}>
         {t.font}

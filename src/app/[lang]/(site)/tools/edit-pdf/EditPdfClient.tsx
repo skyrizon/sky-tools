@@ -71,6 +71,7 @@ import PageOrganizer from "./studio/PageOrganizer";
 import PageThumb from "./studio/PageThumb";
 import TextProps, { type TextStyle } from "./studio/TextProps";
 import { DEFAULT_FONT, fontForPdfText, matchFont } from "@/lib/pdf-studio/fonts";
+import { RUN_KEYS, applyRunStyle, rangeStyle, replaceText } from "@/lib/pdf-studio/rich-text";
 import { DEFAULT_LINE_HEIGHT } from "@/lib/pdf-studio/types";
 import SignatureDialog, { type SignatureImage } from "./studio/SignatureDialog";
 
@@ -160,6 +161,8 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
   });
   const [selectedAnnId, setSelectedAnnId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  // Characters selected in the text being edited: formatting then applies to just those.
+  const [textSelection, setTextSelection] = useState<{ id: string; start: number; end: number } | null>(null);
   const [zoom, setZoom] = useState<number | "fit">("fit");
   const [panel, setPanel] = useState<"page" | "object" | "document">("page");
   const [pendingImage, setPendingImage] = useState<PendingImage | null>(null);
@@ -462,6 +465,7 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
   // Selecting an object opens its panel.
   const selectAnn = useCallback((id: string | null) => {
     setSelectedAnnId(id);
+    setTextSelection(null);
     if (id) setPanel("object");
   }, []);
 
@@ -698,18 +702,18 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
       setStyle((s) => ({ ...s, ...patch }));
       if (!selectedAnn) return;
       updateSelectedAnn((a) => {
-        if (a.type === "text")
-          return {
+        if (a.type === "text") {
+          const next = {
             ...a,
-            color: patch.color ?? a.color,
             size: patch.fontSize ?? a.size,
-            bold: patch.bold ?? a.bold,
             font: patch.font ?? a.font,
-            italic: patch.italic ?? a.italic,
-            underline: patch.underline ?? a.underline,
             align: patch.align ?? a.align,
             lineHeight: patch.lineHeight ?? a.lineHeight,
           };
+          // Whole-object formatting also replaces any formatting on parts of the text.
+          const { bold, italic, underline, color } = patch;
+          return applyRunStyle(next, 0, next.text.length, { bold, italic, underline, color });
+        }
         if (a.type === "line") return { ...a, stroke: patch.color ?? a.stroke, strokeWidth: patch.strokeWidth ?? a.strokeWidth };
         if (a.type === "ink") return { ...a, stroke: patch.color ?? a.stroke, strokeWidth: patch.strokeWidth ?? a.strokeWidth };
         if ((a.type === "rect" || a.type === "ellipse") && !a.role)
@@ -728,6 +732,7 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
 
   function chooseTool(next: Tool) {
     setEditingId(null);
+    setTextSelection(null);
     setSelectedAnnId(null);
     setPendingImage(null);
     setTool(next);
@@ -952,16 +957,23 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
 
   // Text formatting shown for the selected text, or the defaults for new text.
   const textTarget = selectedAnn?.type === "text" ? selectedAnn : null;
-  const textStyle: TextStyle = textTarget
+  const partSelected =
+    textTarget && textSelection?.id === textTarget.id && textSelection.start !== textSelection.end ? textSelection : null;
+  const runStyle = textTarget
+    ? partSelected
+      ? rangeStyle(textTarget, partSelected.start, partSelected.end)
+      : rangeStyle(textTarget, 0, textTarget.text.length)
+    : null;
+  const textStyle: TextStyle = textTarget && runStyle
     ? {
         font: textTarget.font ?? "plex",
         size: textTarget.size,
-        bold: textTarget.bold,
-        italic: textTarget.italic ?? false,
-        underline: textTarget.underline ?? false,
+        bold: runStyle.bold,
+        italic: runStyle.italic,
+        underline: runStyle.underline,
         align: textTarget.align ?? "left",
         lineHeight: textTarget.lineHeight ?? DEFAULT_LINE_HEIGHT,
-        color: textTarget.color,
+        color: runStyle.color,
       }
     : {
         font: style.font,
@@ -974,8 +986,17 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
         color: style.color,
       };
   const applyTextStyle = (patch: Partial<TextStyle>) => {
-    const { size, ...rest } = patch;
-    applyStyle({ ...rest, ...(size !== undefined ? { fontSize: size } : {}) });
+    const { size, bold, italic, underline, color, ...rest } = patch;
+    const run = { bold, italic, underline, color };
+    if (partSelected && textTarget && RUN_KEYS.some((key) => run[key] !== undefined)) {
+      // Bold, italic, underline, and color apply to just the selected characters.
+      updateSelectedAnn((a) => (a.type === "text" ? applyRunStyle(a, partSelected.start, partSelected.end, run) : a));
+      if (size !== undefined || Object.keys(rest).length) applyStyle({ ...rest, ...(size !== undefined ? { fontSize: size } : {}) });
+      return;
+    }
+    const whole: Partial<StyleState> = { ...rest, ...(size !== undefined ? { fontSize: size } : {}) };
+    for (const key of RUN_KEYS) if (run[key] !== undefined) Object.assign(whole, { [key]: run[key] });
+    applyStyle(whole);
   };
   const showTextProps = showFont || (tool === "text" && !selectedAnn);
 
@@ -1139,7 +1160,14 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
         {showTextProps && (
           <>
             <TextProps value={textStyle} onChange={applyTextStyle} t={t.textProps} pickerT={t.fontPicker} compact />
-            <div className="flex shrink-0 items-center gap-1" aria-label={t.style.color}>
+            <div
+              data-text-format
+              onMouseDown={(e) => {
+                if ((e.target as Element).closest("button")) e.preventDefault();
+              }}
+              className="flex shrink-0 items-center gap-1"
+              aria-label={t.style.color}
+            >
               {COLORS.filter((col) => col !== "#ffffff").map((col) => (
                 <button
                   key={col}
@@ -1259,6 +1287,8 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
                           newTextLabel={t.newText}
                           textRuns={tool === "editText" ? textRuns[sourceKey(page)] : undefined}
                           onEditRun={(run) => void editRun(page, run)}
+                          onTextSelection={setTextSelection}
+                          onToggleRun={(prop) => applyTextStyle({ [prop]: !textStyle[prop] })}
                         />
                       </div>
                       <span className="text-xs font-semibold text-muted">{i + 1}</span>
@@ -1468,7 +1498,10 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
                         onFocus={beginChange}
                         onChange={(e) => {
                           const text = e.target.value;
-                          updateCurrent((p) => ({ ...p, annotations: p.annotations.map((a) => (a.id === selectedAnn.id ? { ...a, text } : a)) as Annotation[] }));
+                          updateCurrent((p) => ({
+                            ...p,
+                            annotations: p.annotations.map((a) => (a.id === selectedAnn.id && a.type === "text" ? replaceText(a, text) : a)),
+                          }));
                         }}
                         className={`${field} font-normal text-foreground`}
                       />

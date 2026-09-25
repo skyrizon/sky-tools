@@ -27,6 +27,18 @@ export type TextAnnotation = {
   lineHeight?: number;
   /** Set when this text replaces a line of the original PDF (id of that line). */
   replaces?: string;
+  /** Formatting for parts of the text, over the defaults above (see rich-text.ts). */
+  spans?: TextSpan[];
+};
+
+/** Formatting for characters start..end (end exclusive) of a text object. */
+export type TextSpan = {
+  start: number;
+  end: number;
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  color?: string;
 };
 
 export type ImageAnnotation = {

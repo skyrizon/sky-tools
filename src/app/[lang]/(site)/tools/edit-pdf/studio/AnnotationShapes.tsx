@@ -7,6 +7,7 @@ import {
   type TextAnnotation,
 } from "@/lib/pdf-studio/types";
 import { ITALIC_SKEW, fontCss, hasRealItalic, type StudioFontId } from "@/lib/pdf-studio/fonts";
+import { styledLines } from "@/lib/pdf-studio/rich-text";
 
 export { fontCss };
 
@@ -48,17 +49,34 @@ export function measureLine(
   return width;
 }
 
-/** Line positions of a text object: alignment within the widest line, baselines by line height. */
+/**
+ * Line positions of a text object: alignment within the widest line, baselines
+ * by line height, and each differently formatted run placed along its line.
+ */
 export function textLayout(ann: TextAnnotation) {
   const lineHeight = ann.lineHeight ?? DEFAULT_LINE_HEIGHT;
-  const texts = ann.text.split("\n");
-  const widths = texts.map((line) => measureLine(line, ann.size, ann.font, ann.bold, !!ann.italic));
-  const width = Math.max(...widths, ann.size * 0.5);
-  const lines = texts.map((text, i) => {
-    const offset = ann.align === "center" ? (width - widths[i]) / 2 : ann.align === "right" ? width - widths[i] : 0;
-    return { text, x: ann.x + offset, baseline: ann.y + textBaseline(ann.size, i, lineHeight), width: widths[i] };
+  const measured = styledLines(ann).map((runs) => {
+    let x = 0;
+    const placed = runs.map((run) => {
+      const width = measureLine(run.text, ann.size, ann.font, run.style.bold, run.style.italic);
+      const at = { ...run, dx: x, width };
+      x += width;
+      return at;
+    });
+    return { runs: placed, width: x };
   });
-  return { lines, width, height: textBlockHeight(ann.size, texts.length, lineHeight) };
+  const width = Math.max(...measured.map((line) => line.width), ann.size * 0.5);
+  const lines = measured.map((line, i) => {
+    const offset = ann.align === "center" ? (width - line.width) / 2 : ann.align === "right" ? width - line.width : 0;
+    const x = ann.x + offset;
+    return {
+      x,
+      baseline: ann.y + textBaseline(ann.size, i, lineHeight),
+      width: line.width,
+      runs: line.runs.map((run) => ({ ...run, x: x + run.dx })),
+    };
+  });
+  return { lines, width, height: textBlockHeight(ann.size, measured.length, lineHeight) };
 }
 
 /** Width of a text object's widest line, in points. */
@@ -128,38 +146,43 @@ export default function AnnotationShapes({
             return (
               <g key={ann.id} data-ann-id={ann.id} {...hit}>
                 {interactive && <rect x={ann.x} y={ann.y} width={layout.width} height={layout.height} fill="transparent" />}
-                {layout.lines.map((line, i) => (
-                  <g
-                    key={i}
-                    transform={
-                      ann.italic && !hasRealItalic(ann.font, ann.bold)
-                        ? `translate(${line.x} ${line.baseline}) skewX(${-ITALIC_SKEW}) translate(${-line.x} ${-line.baseline})`
-                        : undefined
-                    }
-                  >
-                    <text
-                      x={line.x}
-                      y={line.baseline}
-                      fontSize={ann.size}
-                      fontWeight={ann.bold ? 700 : 400}
-                      fontStyle={ann.italic && hasRealItalic(ann.font, ann.bold) ? "italic" : undefined}
-                      fill={ann.color}
-                      style={{ fontFamily: fontCss(ann.font), whiteSpace: "pre" }}
-                    >
-                      {line.text}
-                    </text>
-                    {ann.underline && line.text && (
-                      <line
-                        x1={line.x}
-                        x2={line.x + line.width}
-                        y1={line.baseline + ann.size * 0.12}
-                        y2={line.baseline + ann.size * 0.12}
-                        stroke={ann.color}
-                        strokeWidth={Math.max(0.5, ann.size * 0.06)}
-                      />
-                    )}
-                  </g>
-                ))}
+                {layout.lines.flatMap((line, i) =>
+                  line.runs.map(({ text, x, width, style }, j) => {
+                    const realItalic = style.italic && hasRealItalic(ann.font, style.bold);
+                    return (
+                      <g
+                        key={`${i}:${j}`}
+                        transform={
+                          style.italic && !realItalic
+                            ? `translate(${x} ${line.baseline}) skewX(${-ITALIC_SKEW}) translate(${-x} ${-line.baseline})`
+                            : undefined
+                        }
+                      >
+                        <text
+                          x={x}
+                          y={line.baseline}
+                          fontSize={ann.size}
+                          fontWeight={style.bold ? 700 : 400}
+                          fontStyle={realItalic ? "italic" : undefined}
+                          fill={style.color}
+                          style={{ fontFamily: fontCss(ann.font), whiteSpace: "pre" }}
+                        >
+                          {text}
+                        </text>
+                        {style.underline && (
+                          <line
+                            x1={x}
+                            x2={x + width}
+                            y1={line.baseline + ann.size * 0.12}
+                            y2={line.baseline + ann.size * 0.12}
+                            stroke={style.color}
+                            strokeWidth={Math.max(0.5, ann.size * 0.06)}
+                          />
+                        )}
+                      </g>
+                    );
+                  }),
+                )}
               </g>
             );
           }

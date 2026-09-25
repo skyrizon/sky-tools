@@ -15,6 +15,8 @@ import {
   type Tool,
 } from "@/lib/pdf-studio/types";
 import AnnotationShapes, { annotationBounds, fontCss, measureText } from "./AnnotationShapes";
+import RichTextEditor from "./RichTextEditor";
+import { replaceText } from "@/lib/pdf-studio/rich-text";
 import type { StudioFontId } from "@/lib/pdf-studio/fonts";
 
 export type StyleState = {
@@ -97,6 +99,8 @@ export default function PageEditor({
   newTextLabel,
   textRuns,
   onEditRun,
+  onTextSelection,
+  onToggleRun,
 }: {
   page: StudioPage;
   imageUrl?: string;
@@ -127,6 +131,10 @@ export default function PageEditor({
   /** Lines of original text, shown as click targets by the Edit text tool. */
   textRuns?: TextRun[];
   onEditRun?: (run: TextRun) => void;
+  /** The selected characters of the text being edited; null once editing ends (unless a formatting control took focus). */
+  onTextSelection?: (selection: { id: string; start: number; end: number } | null) => void;
+  /** Ctrl+B / I / U inside the text being edited. */
+  onToggleRun?: (prop: "bold" | "italic" | "underline") => void;
 }) {
   const frameRef = useRef<HTMLDivElement>(null);
   const drag = useRef<Drag | null>(null);
@@ -544,39 +552,28 @@ export default function PageEditor({
             })}
 
             {editing && editing.type === "text" && (
-              <textarea
-                autoFocus
-                value={editing.text}
-                onFocus={(e) => e.currentTarget.select()}
-                onChange={(e) => {
-                  const text = e.target.value;
-                  setAnn(editing.id, (a) => ({ ...a, text }) as Annotation);
-                }}
-                onBlur={() => {
+              <RichTextEditor
+                key={editing.id}
+                ann={editing}
+                onTextChange={(text) => setAnn(editing.id, (a) => (a.type === "text" ? replaceText(a, text) : a))}
+                onSelectionChange={(start, end) => onTextSelection?.({ id: editing.id, start, end })}
+                onToggle={(prop) => onToggleRun?.(prop)}
+                onDone={(keepSelection) => {
                   if (!editing.text.trim()) {
                     updatePage((p) => ({ ...p, annotations: p.annotations.filter((a) => a.id !== editing.id) }));
                     onSelect(null);
                   }
+                  if (!keepSelection) onTextSelection?.(null);
                   onEditingChange(null);
                 }}
-                onKeyDown={(e) => {
-                  e.stopPropagation();
-                  if (e.key === "Escape") e.currentTarget.blur();
-                }}
-                rows={editing.text.split("\n").length}
-                spellCheck={false}
-                className="absolute resize-none overflow-hidden rounded-sm bg-white/70 p-0 outline outline-1 outline-accent"
                 style={{
                   left: editing.x * scale,
                   // Centre the first line's box on the drawn baseline.
                   top: (editing.y - ((editing.lineHeight ?? DEFAULT_LINE_HEIGHT) - 1) * 0.5 * editing.size + editing.size * 0.02) * scale,
-                  width: (measureText(editing) + editing.size) * scale,
+                  minWidth: (measureText(editing) + editing.size) * scale,
                   fontSize: editing.size * scale,
                   lineHeight: `${textLineHeight(editing.size, editing.lineHeight) * scale}px`,
                   fontFamily: fontCss(editing.font),
-                  fontWeight: editing.bold ? 700 : 400,
-                  fontStyle: editing.italic ? "italic" : "normal",
-                  textDecoration: editing.underline ? "underline" : "none",
                   textAlign: editing.align ?? "left",
                   color: editing.color,
                 }}
