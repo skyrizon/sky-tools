@@ -1,6 +1,7 @@
 import {
   Combine,
   FileImage,
+  FilePen,
   ImageDown,
   ImageIcon,
   QrCode,
@@ -29,6 +30,7 @@ export const TOOLS: Tool[] = [
   { slug: "qr-generator", category: "qr", icon: QrCode },
   { slug: "image-converter", category: "image", icon: ImageIcon },
   { slug: "image-compressor", category: "image", icon: ImageDown },
+  { slug: "edit-pdf", category: "pdf", icon: FilePen },
   { slug: "images-to-pdf", category: "pdf", icon: FileImage },
   { slug: "pdf-merge", category: "pdf", icon: Combine },
   { slug: "pdf-split", category: "pdf", icon: Scissors },

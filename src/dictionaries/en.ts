@@ -67,6 +67,13 @@ const en = {
       metaDescription:
         "Turn JPG, PNG, and WebP images into one PDF. Reorder pages, pick A4, Letter, or image size, and set margins. Free, private, and nothing is uploaded.",
     },
+    "edit-pdf": {
+      name: "Edit PDF",
+      description: "Rotate, delete, and reorder PDF pages, or add pages from another PDF.",
+      seoTitle: "Edit PDF Pages Online — Rotate, Delete & Reorder Free",
+      metaDescription:
+        "Rotate, delete, and rearrange PDF pages with live thumbnails, or add pages from other PDFs, then save. Free, no sign-up, and your file never leaves your device.",
+    },
     "pdf-merge": {
       name: "Merge PDF",
       description: "Join several PDF files into one, in the order you choose.",
@@ -346,6 +353,54 @@ const en = {
       create: "Create PDF ({count} pages)",
       creating: "Creating PDF…",
       failed: "Couldn't create the PDF. One of the images may be damaged.",
+    },
+  },
+
+  editPdf: {
+    intro: "Fix a PDF's pages — rotate, remove, reorder, or add more — and save a new copy. Nothing is uploaded.",
+    howTitle: "How editing PDF pages works",
+    howBody: [
+      "Open a PDF and every page appears as a thumbnail. Rotate pages that were scanned sideways, delete the ones you don't need, and drag pages (or use the arrows) to change the order. Use “Add pages” to bring in pages from another PDF — they're added at the end, ready to be moved.",
+      "When you save, a new PDF is built from your pages in the order shown. Pages are copied as they are, so text stays selectable and nothing is re-compressed. Your original file is never changed, and everything runs in your browser.",
+    ],
+    faq: [
+      {
+        q: "Can I edit the text inside the PDF?",
+        a: "Not with this tool — it works on whole pages: rotating, deleting, reordering, and combining them. The content of each page stays exactly as it is.",
+      },
+      {
+        q: "Will rotating a page reduce quality?",
+        a: "No. Rotation is stored as a page setting, so text and images aren't redrawn or compressed.",
+      },
+      {
+        q: "Can I combine pages from several PDFs?",
+        a: "Yes. Press “Add pages” and choose another PDF; its pages join the end of the list and can be moved anywhere.",
+      },
+      {
+        q: "Is my PDF uploaded?",
+        a: "No. Thumbnails and the final PDF are both made in your browser, so the document stays on your device.",
+      },
+    ],
+    ui: {
+      dropTitle: "Drop a PDF here, or click to choose",
+      dropHint: "Rotate, delete, and reorder its pages",
+      addPages: "Add pages from another PDF",
+      pageCount: "{count} pages",
+      dragHint: "Drag pages to reorder, or use the arrows.",
+      pageLabel: "Page {page}",
+      rotateLeft: "Rotate left",
+      rotateRight: "Rotate right",
+      rotateAll: "Rotate all",
+      moveEarlier: "Move earlier",
+      moveLater: "Move later",
+      remove: "Delete page",
+      save: "Save PDF",
+      saving: "Saving…",
+      startOver: "Start over",
+      empty: "All pages were deleted. Add a PDF to continue.",
+      encrypted: "“{file}” is password-protected. Remove the password and try again.",
+      unreadable: "Couldn't read “{file}” as a PDF.",
+      failed: "Couldn't save the PDF.",
     },
   },
 

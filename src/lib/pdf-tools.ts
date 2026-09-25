@@ -1,4 +1,4 @@
-import { PDFDocument } from "pdf-lib";
+import { PDFDocument, degrees } from "pdf-lib";
 import { convertImage } from "@/lib/image-convert";
 
 export type PageSize = "fit" | "a4" | "letter";
@@ -90,6 +90,30 @@ export async function mergePdfs(files: File[]): Promise<Blob> {
     pages.forEach((page) => merged.addPage(page));
   }
   return toBlob(await merged.save());
+}
+
+/**
+ * Assembles a new PDF from pages of one or more source files, in the given
+ * order, each turned by an extra `rotation` (a multiple of 90°) on top of any
+ * rotation the page already had.
+ */
+export async function buildPdf(
+  pages: { file: File; index: number; rotation: number }[],
+): Promise<Blob> {
+  const out = await PDFDocument.create();
+  const sources = new Map<File, PDFDocument>();
+  for (const { file, index, rotation } of pages) {
+    let source = sources.get(file);
+    if (!source) {
+      source = await loadPdf(file);
+      sources.set(file, source);
+    }
+    const [page] = await out.copyPages(source, [index]);
+    const turned = (((page.getRotation().angle + rotation) % 360) + 360) % 360;
+    page.setRotation(degrees(turned));
+    out.addPage(page);
+  }
+  return toBlob(await out.save());
 }
 
 /** A new PDF containing only the given pages (0-based indices, in that order). */
