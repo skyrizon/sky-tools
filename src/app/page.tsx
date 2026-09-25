@@ -1,12 +1,23 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { TOOLS } from "@/lib/tools";
+import { siteJsonLd } from "@/lib/seo";
+import JsonLd from "@/components/JsonLd";
 import AdSlot from "@/components/AdSlot";
 import { AD_SLOTS } from "@/lib/ads";
 import { ToolInfoSection } from "@/components/ToolInfo";
 
+export const metadata: Metadata = {
+  title: { absolute: "Sky Tools — Free Online QR Code, Image & PDF Tools" },
+  description:
+    "Free online tools that run in your browser: QR code generator, image converter, PDF to JPG and more. No sign-up, no uploads — your files stay on your device.",
+  alternates: { canonical: "/" },
+};
+
 export default function Home() {
   return (
     <div className="mx-auto max-w-5xl px-6 py-16">
+      <JsonLd data={siteJsonLd()} />
       <div className="max-w-2xl">
         <h1 className="text-3xl font-extrabold tracking-tight">
           Free tools, no sign-up required.
@@ -36,9 +47,9 @@ export default function Home() {
         <p>
           Sky Tools is a small collection of single-purpose web tools that run entirely in your
           browser — a QR code generator, an image and PDF converter, and more added over time. No
-          file or piece of data you type into a tool is ever uploaded to a server. That's a
-          deliberate choice: most everyday conversions and generations don't need a round trip to
-          the cloud, so they don't get one here.
+          file or piece of data you type into a tool is ever uploaded to a server. That&apos;s a
+          deliberate choice: most everyday conversions and generations don&apos;t need a round trip to
+          the cloud, so they don&apos;t get one here.
         </p>
         <p>
           Every tool is free, with no sign-up and no account — just open a tool and use it.

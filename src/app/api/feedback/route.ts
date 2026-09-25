@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { getTool } from "@/lib/tools";
 import { FEEDBACK_LIMITS, FEEDBACK_TYPES, type FeedbackType } from "@/lib/community";
 import { postFeedbackToDiscord } from "@/lib/discord";
+import { clientIp, createRateLimiter } from "@/lib/rate-limit";
+
+const rateLimit = createRateLimiter({ limit: 5, windowMs: 10 * 60 * 1000 });
+const MAX_LINKS = 3;
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
@@ -37,6 +41,21 @@ export async function POST(request: Request) {
   }
   if (email !== "" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return NextResponse.json({ error: "Please enter a valid email address." }, { status: 400 });
+  }
+  if ((`${title} ${message}`.match(/https?:\/\//gi) ?? []).length > MAX_LINKS) {
+    return NextResponse.json(
+      { error: `Please include no more than ${MAX_LINKS} links.` },
+      { status: 400 },
+    );
+  }
+
+  // Counted only once a submission is valid, so fixing a typo doesn't use up the limit.
+  const limited = rateLimit(clientIp(request));
+  if (!limited.ok) {
+    return NextResponse.json(
+      { error: "You've sent a lot of feedback in a short time. Please try again in a few minutes." },
+      { status: 429, headers: { "Retry-After": String(limited.retryAfterSeconds) } },
+    );
   }
 
   try {

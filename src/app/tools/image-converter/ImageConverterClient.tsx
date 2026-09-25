@@ -9,11 +9,12 @@ import {
   OUTPUT_FORMATS,
   type ImageOutputFormat,
 } from "@/lib/image-convert";
-import { getPdfPageCount, renderPdfPageToImage } from "@/lib/pdf-convert";
+import { getPdfPageCount, releasePdf, renderPdfPageToImage } from "@/lib/pdf-convert";
 import AdSlot from "@/components/AdSlot";
 import SupportNote from "@/components/SupportNote";
 import { AD_SLOTS } from "@/lib/ads";
 import { ToolInfoSection, Faq } from "@/components/ToolInfo";
+import { IMAGE_CONVERTER_FAQ } from "./content";
 
 type Item = {
   id: string;
@@ -28,6 +29,8 @@ type Item = {
   error?: string;
 };
 
+const LARGE_PDF_PAGES = 100;
+
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -40,11 +43,17 @@ export default function ImageConverterClient() {
   const [quality, setQuality] = useState(0.85);
   const [downloaded, setDownloaded] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
+  const [pdfNotice, setPdfNotice] = useState<string | null>(null);
   const nextId = useRef(0);
+  // Only one conversion runs at a time; settingsRef lets a finished job detect
+  // that the format or quality changed while it was running.
+  const converting = useRef(false);
+  const settingsRef = useRef(`${format}|${quality}`);
 
   async function addFiles(fileList: FileList | null) {
     if (!fileList || fileList.length === 0) return;
     setPdfError(null);
+    setPdfNotice(null);
 
     for (const file of Array.from(fileList)) {
       if (file.type.startsWith("image/")) {
@@ -58,6 +67,11 @@ export default function ImageConverterClient() {
       if (file.type === "application/pdf") {
         try {
           const pageCount = await getPdfPageCount(file);
+          if (pageCount > LARGE_PDF_PAGES) {
+            setPdfNotice(
+              `"${file.name}" has ${pageCount} pages. Converting them all can take a while and use a lot of memory — remove pages you don't need.`,
+            );
+          }
           const pdfItems: Item[] = Array.from({ length: pageCount }, (_, i) => ({
             id: String(nextId.current++),
             file,
@@ -83,49 +97,58 @@ export default function ImageConverterClient() {
     setItems((prev) => {
       const target = prev.find((i) => i.id === id);
       if (target?.url) URL.revokeObjectURL(target.url);
-      return prev.filter((i) => i.id !== id);
+      const rest = prev.filter((i) => i.id !== id);
+      if (target && !rest.some((i) => i.file === target.file)) releasePdf(target.file);
+      return rest;
     });
   }
 
+  function changeSettings(nextFormat: ImageOutputFormat, nextQuality: number) {
+    setFormat(nextFormat);
+    setQuality(nextQuality);
+    settingsRef.current = `${nextFormat}|${nextQuality}`;
+    setItems((prev) => prev.map((i) => (i.status === "pending" ? i : { ...i, status: "pending" })));
+  }
+
+  // Convert pending items one at a time. Adding a file or changing settings only
+  // (re)converts what is pending instead of redoing the whole list.
   useEffect(() => {
-    let cancelled = false;
+    if (converting.current) return;
+    const item = items.find((i) => i.status === "pending");
+    if (!item) return;
 
-    async function run() {
-      for (const item of items) {
-        if (cancelled) return;
-        try {
-          const blob =
-            item.kind === "image"
-              ? await convertImage(item.file, format, quality)
-              : await renderPdfPageToImage(item.file, item.pageNumber ?? 1, format, quality);
-          if (cancelled) return;
-          setItems((prev) =>
-            prev.map((i) => {
-              if (i.id !== item.id) return i;
-              if (i.url) URL.revokeObjectURL(i.url);
-              return { ...i, status: "done", blob, url: URL.createObjectURL(blob), error: undefined };
-            }),
-          );
-        } catch (err) {
-          if (cancelled) return;
-          setItems((prev) =>
-            prev.map((i) =>
-              i.id === item.id
-                ? { ...i, status: "error", error: err instanceof Error ? err.message : "Conversion failed." }
-                : i,
-            ),
-          );
-        }
-      }
-    }
+    converting.current = true;
+    const settings = settingsRef.current;
+    const job =
+      item.kind === "image"
+        ? convertImage(item.file, format, quality)
+        : renderPdfPageToImage(item.file, item.pageNumber ?? 1, format, quality);
 
-    run();
-    return () => {
-      cancelled = true;
-    };
-    // Re-run whenever the file list, format, or quality changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items.map((i) => i.id).join(","), format, quality]);
+    job.then(
+      (blob) => {
+        converting.current = false;
+        setItems((prev) =>
+          prev.map((i) => {
+            if (i.id !== item.id) return i;
+            // Settings changed mid-conversion: leave it pending so it is redone.
+            if (settings !== settingsRef.current) return { ...i };
+            if (i.url) URL.revokeObjectURL(i.url);
+            return { ...i, status: "done", blob, url: URL.createObjectURL(blob), error: undefined };
+          }),
+        );
+      },
+      (err) => {
+        converting.current = false;
+        setItems((prev) =>
+          prev.map((i) =>
+            i.id === item.id
+              ? { ...i, status: "error", error: err instanceof Error ? err.message : "Conversion failed." }
+              : i,
+          ),
+        );
+      },
+    );
+  }, [items, format, quality]);
 
   useEffect(() => {
     return () => {
@@ -170,7 +193,7 @@ export default function ImageConverterClient() {
       for (const item of done) {
         let fileName = itemFileName(item);
         for (let n = 2; files[fileName]; n++) {
-          fileName = fileName.replace(/(-d+)?(.w+)$/, `-${n}$2`);
+          fileName = fileName.replace(/(-\d+)?(\.\w+)$/, `-${n}$2`);
         }
         files[fileName] = [new Uint8Array(await item.blob!.arrayBuffer()), { level: 0 }];
       }
@@ -215,6 +238,10 @@ export default function ImageConverterClient() {
               className="hidden"
             />
           </label>
+
+          {pdfNotice && (
+            <p className="mt-3 rounded-lg bg-accent-soft px-4 py-3 text-sm text-foreground">{pdfNotice}</p>
+          )}
 
           {pdfError && (
             <p className="mt-3 rounded-lg bg-error-soft px-4 py-3 text-sm font-semibold text-error">
@@ -269,7 +296,7 @@ export default function ImageConverterClient() {
             Convert to
             <select
               value={format}
-              onChange={(e) => setFormat(e.target.value as ImageOutputFormat)}
+              onChange={(e) => changeSettings(e.target.value as ImageOutputFormat, quality)}
               className="rounded-lg border border-border px-3 py-2.5 font-normal focus:border-accent focus:outline-none focus:ring-4 focus:ring-accent-soft"
             >
               {OUTPUT_FORMATS.map((f) => (
@@ -289,7 +316,7 @@ export default function ImageConverterClient() {
                 max={1}
                 step={0.05}
                 value={quality}
-                onChange={(e) => setQuality(Number(e.target.value))}
+                onChange={(e) => changeSettings(format, Number(e.target.value))}
               />
             </label>
           )}
@@ -324,26 +351,7 @@ export default function ImageConverterClient() {
       </ToolInfoSection>
 
       <ToolInfoSection title="Frequently asked questions">
-        <Faq
-          items={[
-            {
-              q: "Is my file uploaded anywhere?",
-              a: "No. The whole conversion — including reading a PDF's pages — runs in your browser using JavaScript and the Canvas API. Nothing is sent over the network.",
-            },
-            {
-              q: "Which format should I pick?",
-              a: "WebP for the smallest file size at good quality (most modern apps and browsers support it). JPG for maximum compatibility with older software. PNG when you need transparency or lossless quality, e.g. for logos or screenshots.",
-            },
-            {
-              q: "Can I convert a multi-page PDF?",
-              a: "Yes — each page becomes its own separate image, listed individually with its own download button, plus a \"Download all as ZIP\" option that bundles the whole set into a single .zip file.",
-            },
-            {
-              q: "Why did my PNG get bigger after converting to JPG?",
-              a: "JPG compression is tuned for photos with smooth color gradients; flat-color or text-heavy images (like screenshots or logos) can sometimes compress worse than PNG's lossless format. Try WebP or PNG instead if that happens.",
-            },
-          ]}
-        />
+        <Faq items={IMAGE_CONVERTER_FAQ} />
       </ToolInfoSection>
 
       <AdSlot slot={AD_SLOTS.toolPageBottom} className="mt-10" />

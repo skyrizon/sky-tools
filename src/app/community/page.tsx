@@ -6,7 +6,8 @@ import FeedbackForm from "./FeedbackForm";
 
 export const metadata: Metadata = {
   title: "Community",
-  description: "Join the Sky Tools Discord, support the project on Ko-fi, or send a bug report or idea.",
+  description: "Report a bug or suggest a new tool for Sky Tools. Every message is read and shapes what gets built next.",
+  alternates: { canonical: "/community" },
 };
 
 export default function CommunityPage() {

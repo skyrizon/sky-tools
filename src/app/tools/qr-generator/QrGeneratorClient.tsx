@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import {
   resolveQrData,
   QrTemplateError,
@@ -12,6 +12,7 @@ import AdSlot from "@/components/AdSlot";
 import SupportNote from "@/components/SupportNote";
 import { AD_SLOTS } from "@/lib/ads";
 import { ToolInfoSection, Faq } from "@/components/ToolInfo";
+import { QR_FAQ } from "./content";
 
 const QR_TYPES: { value: QrType; label: string }[] = [
   { value: "text", label: "Text / URL" },
@@ -69,13 +70,12 @@ export default function QrGeneratorClient() {
 
   const recommendedMinLevel: ErrorLevel | null = logoDataUrl ? "H" : dotStyle === "dots" ? "Q" : null;
 
-  useEffect(() => {
-    if (recommendedMinLevel && ERROR_LEVEL_RANK[errorLevel] < ERROR_LEVEL_RANK[recommendedMinLevel]) {
-      setErrorLevel(recommendedMinLevel);
-    }
-    // Only bump when the logo or dot style actually changes — never fight a manual downgrade afterward.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [logoDataUrl, dotStyle]);
+  // Bump error correction when a logo or dotted style is picked — only at that
+  // moment, so a manual downgrade afterward is respected.
+  function raiseErrorLevelFor(hasLogo: boolean, style: DotStyle) {
+    const min: ErrorLevel | null = hasLogo ? "H" : style === "dots" ? "Q" : null;
+    if (min) setErrorLevel((level) => (ERROR_LEVEL_RANK[level] < ERROR_LEVEL_RANK[min] ? min : level));
+  }
 
   async function handleLogoUpload(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -89,7 +89,10 @@ export default function QrGeneratorClient() {
       return;
     }
     const reader = new FileReader();
-    reader.onload = () => setLogoDataUrl(reader.result as string);
+    reader.onload = () => {
+      setLogoDataUrl(reader.result as string);
+      raiseErrorLevelFor(true, dotStyle);
+    };
     reader.readAsDataURL(file);
   }
 
@@ -290,7 +293,11 @@ export default function QrGeneratorClient() {
             <Field label="Dot style">
               <select
                 value={dotStyle}
-                onChange={(e) => setDotStyle(e.target.value as DotStyle)}
+                onChange={(e) => {
+                  const style = e.target.value as DotStyle;
+                  setDotStyle(style);
+                  raiseErrorLevelFor(Boolean(logoDataUrl), style);
+                }}
                 className={fieldClass}
               >
                 <option value="square">Square</option>
@@ -379,26 +386,7 @@ export default function QrGeneratorClient() {
       </ToolInfoSection>
 
       <ToolInfoSection title="Frequently asked questions">
-        <Faq
-          items={[
-            {
-              q: "Do I need an account to generate a QR code?",
-              a: "No. There are no accounts on Sky Tools — generating, previewing, and downloading a QR code as PNG or SVG all work straight away.",
-            },
-            {
-              q: "Will my WiFi password be visible in the QR code?",
-              a: "Yes — WiFi QR codes encode the network name, password, and encryption type directly, which is how a phone camera can join the network without anyone typing the password. Only share the code with people you'd trust with the password itself.",
-            },
-            {
-              q: "Can I add a logo to the center of the code?",
-              a: "Yes, under \"Logo (optional).\" The generator automatically increases error correction to keep the code scannable once part of it is covered by the logo.",
-            },
-            {
-              q: "What's the difference between PNG and SVG downloads?",
-              a: "PNG is a fixed-resolution image, good for most uses (print, messaging apps, documents). SVG is vector-based and stays sharp at any size, which is better if you plan to resize the code significantly or edit it in design software.",
-            },
-          ]}
-        />
+        <Faq items={QR_FAQ} />
       </ToolInfoSection>
 
       <AdSlot slot={AD_SLOTS.toolPageBottom} className="mt-10" />

@@ -27,14 +27,17 @@ export default function AdSlot({ slot, className = "" }: { slot: string; classNa
   // No real ad unit created yet for this placement — render nothing rather than a broken/erroring unit.
   if (slot === PLACEHOLDER_SLOT) return null;
 
+  // Reserve the ad's height up front so the page doesn't jump when it loads (CLS).
   return (
-    <ins
-      className={`adsbygoogle block ${className}`}
-      style={{ display: "block" }}
-      data-ad-client={ADSENSE_CLIENT_ID}
-      data-ad-slot={slot}
-      data-ad-format="auto"
-      data-full-width-responsive="true"
-    />
+    <div className={`min-h-[280px] ${className}`}>
+      <ins
+        className="adsbygoogle block"
+        style={{ display: "block" }}
+        data-ad-client={ADSENSE_CLIENT_ID}
+        data-ad-slot={slot}
+        data-ad-format="auto"
+        data-full-width-responsive="true"
+      />
+    </div>
   );
 }
