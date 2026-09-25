@@ -1,12 +1,27 @@
 "use client";
 
 import { useState } from "react";
-import { FEEDBACK_LIMITS, FEEDBACK_TYPES, type FeedbackType } from "@/lib/community";
+import type { Dictionary } from "@/dictionaries";
+import type { Locale } from "@/lib/i18n";
+import {
+  FEEDBACK_LIMITS,
+  FEEDBACK_TYPES,
+  type FeedbackErrorCode,
+  type FeedbackType,
+} from "@/lib/community";
 
 const inputClass =
   "rounded-lg border border-border bg-background-raised px-3 py-2.5 font-normal focus:border-accent focus:outline-none focus:ring-4 focus:ring-accent-soft";
 
-export default function FeedbackForm({ tools }: { tools: { slug: string; name: string }[] }) {
+export default function FeedbackForm({
+  lang,
+  t,
+  tools,
+}: {
+  lang: Locale;
+  t: Dictionary["community"]["form"];
+  tools: { slug: string; name: string }[];
+}) {
   const [type, setType] = useState<FeedbackType>("bug");
   const [toolSlug, setToolSlug] = useState("");
   const [title, setTitle] = useState("");
@@ -25,13 +40,13 @@ export default function FeedbackForm({ tools }: { tools: { slug: string; name: s
     const res = await fetch("/api/feedback", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type, toolSlug, title, message, email, website }),
-    });
-    const body = await res.json().catch(() => ({}));
+      body: JSON.stringify({ type, toolSlug, title, message, email, website, lang }),
+    }).catch(() => null);
+    const body: { code?: FeedbackErrorCode } = (await res?.json().catch(() => ({}))) ?? {};
     setPending(false);
 
-    if (!res.ok) {
-      setError(body.error ?? "Something went wrong. Please try again.");
+    if (!res?.ok) {
+      setError(t.errors[body.code ?? "failed"] ?? t.errors.failed);
       return;
     }
 
@@ -43,16 +58,14 @@ export default function FeedbackForm({ tools }: { tools: { slug: string; name: s
   if (sent) {
     return (
       <div className="mt-6 rounded-lg bg-accent-soft px-4 py-4 text-sm">
-        <p className="font-semibold">Thanks, we got it.</p>
-        <p className="mt-1 text-muted">
-          If you left an email, we may reach out with questions or when it&apos;s fixed.
-        </p>
+        <p className="font-semibold">{t.thanks}</p>
+        <p className="mt-1 text-muted">{t.thanksBody}</p>
         <button
           type="button"
           onClick={() => setSent(false)}
           className="mt-3 font-semibold text-accent-hover hover:underline"
         >
-          Send another
+          {t.sendAnother}
         </button>
       </div>
     );
@@ -65,13 +78,13 @@ export default function FeedbackForm({ tools }: { tools: { slug: string; name: s
       )}
 
       <fieldset className="flex flex-col gap-1.5 text-sm font-semibold">
-        <legend className="mb-1.5">Type</legend>
+        <legend className="mb-1.5">{t.type}</legend>
         <div className="flex flex-wrap gap-2">
-          {FEEDBACK_TYPES.map((option) => (
+          {FEEDBACK_TYPES.map((value) => (
             <label
-              key={option.value}
+              key={value}
               className={`cursor-pointer rounded-lg border px-3 py-2 font-medium transition ${
-                type === option.value
+                type === value
                   ? "border-accent bg-accent-soft text-accent-hover"
                   : "border-border text-muted hover:text-foreground"
               }`}
@@ -79,12 +92,12 @@ export default function FeedbackForm({ tools }: { tools: { slug: string; name: s
               <input
                 type="radio"
                 name="type"
-                value={option.value}
-                checked={type === option.value}
-                onChange={() => setType(option.value)}
+                value={value}
+                checked={type === value}
+                onChange={() => setType(value)}
                 className="sr-only"
               />
-              {option.label}
+              {t.types[value]}
             </label>
           ))}
         </div>
@@ -92,13 +105,13 @@ export default function FeedbackForm({ tools }: { tools: { slug: string; name: s
 
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="flex flex-col gap-1.5 text-sm font-semibold">
-          Tool
+          {t.tool}
           <select
             value={toolSlug}
             onChange={(event) => setToolSlug(event.target.value)}
             className={inputClass}
           >
-            <option value="">General / whole site</option>
+            <option value="">{t.general}</option>
             {tools.map((tool) => (
               <option key={tool.slug} value={tool.slug}>
                 {tool.name}
@@ -108,7 +121,7 @@ export default function FeedbackForm({ tools }: { tools: { slug: string; name: s
         </label>
         <label className="flex flex-col gap-1.5 text-sm font-semibold">
           <span>
-            Email <span className="font-normal text-muted">(optional, for follow-up)</span>
+            {t.email} <span className="font-normal text-muted">{t.emailHint}</span>
           </span>
           <input
             type="email"
@@ -121,20 +134,20 @@ export default function FeedbackForm({ tools }: { tools: { slug: string; name: s
       </div>
 
       <label className="flex flex-col gap-1.5 text-sm font-semibold">
-        Title
+        {t.title}
         <input
           type="text"
           required
           maxLength={FEEDBACK_LIMITS.title}
           value={title}
           onChange={(event) => setTitle(event.target.value)}
-          placeholder={type === "bug" ? "PDF conversion fails on large files" : "Add a PDF merge tool"}
+          placeholder={type === "bug" ? t.titlePlaceholderBug : t.titlePlaceholderIdea}
           className={inputClass}
         />
       </label>
 
       <label className="flex flex-col gap-1.5 text-sm font-semibold">
-        Details
+        {t.details}
         <textarea
           required
           minLength={10}
@@ -163,7 +176,7 @@ export default function FeedbackForm({ tools }: { tools: { slug: string; name: s
         disabled={pending}
         className="self-start rounded-lg bg-gradient-to-br from-accent to-accent-2 px-5 py-2.5 font-bold text-white shadow-md shadow-accent/30 hover:brightness-105 disabled:opacity-60"
       >
-        {pending ? "Sending…" : "Send feedback"}
+        {pending ? t.sending : t.send}
       </button>
     </form>
   );

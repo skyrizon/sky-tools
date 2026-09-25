@@ -25,20 +25,30 @@ Open http://localhost:3000.
 Put them in `.env.local` for development and in Vercel → Settings → Environment Variables for
 production.
 
+## Languages
+
+English is served at unprefixed URLs (`/tools/qr-generator`) and Thai under `/th`
+(`/th/tools/qr-generator`). All pages live in `src/app/[lang]/`; `src/proxy.ts` rewrites
+unprefixed requests to `/en/...` and redirects explicit `/en/...` URLs to the clean one. Every
+string is in `src/dictionaries/en.ts` and `th.ts` (the Thai file is type-checked against the
+English one, so a missing translation fails the build).
+
 ## Adding a tool
 
-1. Add an entry to `TOOLS` in `src/lib/tools.ts` (slug, name, description, SEO title, category, icon).
-2. Create `src/app/tools/<slug>/page.tsx` (server: metadata + JSON-LD via `src/lib/seo.ts`) and a
-   `*Client.tsx` for the interactive part. Put the FAQ in `content.ts` so it feeds both the page
-   and the FAQPage structured data.
-3. Copy an existing `opengraph-image.tsx` for the link-preview image.
+1. Add an entry to `TOOLS` in `src/lib/tools.ts` (slug, category, icon).
+2. Add its text under `tools` — plus any UI strings, explanation, and FAQ — in both
+   `src/dictionaries/en.ts` and `th.ts`.
+3. Create `src/app/[lang]/tools/<slug>/page.tsx` using `ToolPageShell` (heading, explanation,
+   FAQ, ad, related tools, and JSON-LD) around a `*Client.tsx` for the interactive part.
+4. Copy an existing `opengraph-image.tsx` for the link-preview image.
 
-The homepage, sitemap, and "More free tools" links pick the new tool up automatically.
+The homepage, sitemap (with hreflang), and "More free tools" links pick the new tool up
+automatically.
 
 ## Where things live
 
 - `src/lib/tools.ts`: tool registry
-- `src/lib/seo.ts`, `src/app/sitemap.ts`, `src/app/robots.ts`: SEO
+- `src/lib/seo.ts`, `src/lib/i18n.ts`, `src/app/sitemap.ts`, `src/app/robots.ts`: SEO and languages
 - `src/lib/og-image.tsx`: shared link-preview image design
 - `src/lib/discord.ts`, `src/app/api/feedback/route.ts`: feedback → Discord (rate-limited)
 - `src/lib/community.ts`: Discord / Ko-fi links

@@ -3,9 +3,9 @@ import Link from "next/link";
 
 const ASPECT_RATIO = 2000 / 2000;
 
-export default function Wordmark({ height = 40 }: { height?: number }) {
+export default function Wordmark({ height = 40, href = "/" }: { height?: number; href?: string }) {
   return (
-    <Link href="/" className="inline-flex shrink-0 items-center">
+    <Link href={href} className="inline-flex shrink-0 items-center">
       <Image
         src="/logo-lockup.svg"
         alt="Sky Tools"

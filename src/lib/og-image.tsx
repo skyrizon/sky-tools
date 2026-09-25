@@ -2,30 +2,51 @@
 import { ImageResponse } from "next/og";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { getDictionary } from "@/dictionaries";
+import { hasLocale } from "@/lib/i18n";
+import type { ToolSlug } from "@/lib/tools";
 
 /** Shared size for every link-preview (Open Graph) image. */
 export const OG_SIZE = { width: 1200, height: 630 };
 export const OG_CONTENT_TYPE = "image/png";
 
-let assets:
-  | Promise<{ logo: string; fonts: { name: string; data: Buffer; weight: 400 | 600 | 800 }[] }>
-  | undefined;
+type Font = { name: string; data: Buffer; weight: 400 | 600 | 700 | 800 };
+
+let assets: Promise<{ logo: string; fonts: Font[] }> | undefined;
 
 function loadAssets() {
   assets ??= (async () => {
     const logo = await readFile(join(process.cwd(), "public/logo-lockup.png"));
-    const fontDir = join(process.cwd(), "node_modules/@fontsource/geist-sans/files");
-    const weights = [400, 600, 800] as const;
-    const fonts = await Promise.all(
-      weights.map(async (weight) => ({
-        name: "Geist",
-        weight,
-        data: await readFile(join(fontDir, `geist-sans-latin-${weight}-normal.woff`)),
-      })),
-    );
+    const geistDir = join(process.cwd(), "node_modules/@fontsource/geist-sans/files");
+    const thaiDir = join(process.cwd(), "node_modules/@fontsource/ibm-plex-sans-thai/files");
+    const load = async (name: string, dir: string, file: string, weight: Font["weight"]) => ({
+      name,
+      weight,
+      data: await readFile(join(dir, file)),
+    });
+    // Geist for Latin text; IBM Plex Sans Thai fills in Thai glyphs Geist lacks.
+    const fonts = await Promise.all([
+      ...([400, 600, 800] as const).map((w) =>
+        load("Geist", geistDir, `geist-sans-latin-${w}-normal.woff`, w),
+      ),
+      ...([400, 600, 700] as const).map((w) =>
+        load("Plex Thai", thaiDir, `ibm-plex-sans-thai-thai-${w}-normal.woff`, w),
+      ),
+    ]);
     return { logo: `data:image/png;base64,${logo.toString("base64")}`, fonts };
   })();
   return assets;
+}
+
+/** Cover for a tool page, in the page's language. */
+export async function renderToolCover(params: Promise<{ lang: string }>, slug: ToolSlug) {
+  const { lang } = await params;
+  const dict = getDictionary(hasLocale(lang) ? lang : "en");
+  return renderCover({
+    eyebrow: dict.meta.ogFreeTool,
+    title: dict.tools[slug].name,
+    subtitle: dict.tools[slug].description,
+  });
 }
 
 /**
@@ -47,7 +68,7 @@ export async function renderCover({ eyebrow, title, subtitle }: {
           height: "100%",
           display: "flex",
           background: "#f7f9fb",
-          fontFamily: "Geist",
+          fontFamily: "Geist, Plex Thai",
         }}
       >
         <div

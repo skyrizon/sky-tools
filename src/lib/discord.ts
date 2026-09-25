@@ -1,5 +1,7 @@
-import { getTool } from "@/lib/tools";
-import { FEEDBACK_TYPES, type FeedbackType } from "@/lib/community";
+import en from "@/dictionaries/en";
+import type { ToolSlug } from "@/lib/tools";
+import type { Locale } from "@/lib/i18n";
+import type { FeedbackType } from "@/lib/community";
 
 /**
  * Posts feedback into a Discord Forum channel through a webhook, so every
@@ -27,15 +29,17 @@ const TYPE_COLORS: Record<FeedbackType, number> = {
 
 export async function postFeedbackToDiscord(feedback: {
   type: FeedbackType;
-  toolSlug: string | null;
+  toolSlug: ToolSlug | null;
   title: string;
   message: string;
   email: string | null;
+  lang: Locale;
 }): Promise<void> {
   if (!WEBHOOK_URL) throw new Error("DISCORD_FEEDBACK_WEBHOOK_URL is not set.");
 
-  const typeLabel = FEEDBACK_TYPES.find((option) => option.value === feedback.type)?.label;
-  const toolName = feedback.toolSlug ? getTool(feedback.toolSlug)?.name : null;
+  // Posts are always in English so the Discord channel reads consistently.
+  const typeLabel = en.community.form.types[feedback.type];
+  const toolName = feedback.toolSlug ? en.tools[feedback.toolSlug].name : null;
   const tagId = TAG_IDS[feedback.type];
 
   const res = await fetch(WEBHOOK_URL, {
@@ -54,8 +58,9 @@ export async function postFeedbackToDiscord(feedback: {
           description: feedback.message,
           color: TYPE_COLORS[feedback.type],
           fields: [
-            { name: "Type", value: typeLabel ?? feedback.type, inline: true },
+            { name: "Type", value: typeLabel, inline: true },
             { name: "Tool", value: toolName ?? "General / whole site", inline: true },
+            { name: "Language", value: feedback.lang === "th" ? "Thai" : "English", inline: true },
             ...(feedback.email ? [{ name: "Contact", value: feedback.email, inline: true }] : []),
           ],
           timestamp: new Date().toISOString(),

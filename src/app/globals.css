@@ -28,7 +28,7 @@
   --color-accent-soft: var(--accent-soft);
   --color-error: var(--error);
   --color-error-soft: var(--error-soft);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-geist-sans), var(--font-thai), system-ui, sans-serif;
   --font-mono: var(--font-geist-mono);
 }
 

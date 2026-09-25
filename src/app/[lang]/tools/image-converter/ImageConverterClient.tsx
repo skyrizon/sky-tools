@@ -10,11 +10,9 @@ import {
   type ImageOutputFormat,
 } from "@/lib/image-convert";
 import { getPdfPageCount, releasePdf, renderPdfPageToImage } from "@/lib/pdf-convert";
-import AdSlot from "@/components/AdSlot";
 import SupportNote from "@/components/SupportNote";
-import { AD_SLOTS } from "@/lib/ads";
-import { ToolInfoSection, Faq } from "@/components/ToolInfo";
-import { IMAGE_CONVERTER_FAQ } from "./content";
+import type { Dictionary } from "@/dictionaries";
+import { format as fill } from "@/lib/i18n";
 
 type Item = {
   id: string;
@@ -37,9 +35,21 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 }
 
-export default function ImageConverterClient() {
+export default function ImageConverterClient({
+  t,
+  support,
+  initialFormat = "image/webp",
+  accept = "image/*,application/pdf",
+}: {
+  t: Dictionary["converter"]["ui"];
+  support: Dictionary["support"];
+  /** Preselected output format, e.g. JPG on a "PNG to JPG" landing page. */
+  initialFormat?: ImageOutputFormat;
+  /** File picker filter, e.g. "application/pdf" on a "PDF to JPG" landing page. */
+  accept?: string;
+}) {
   const [items, setItems] = useState<Item[]>([]);
-  const [format, setFormat] = useState<ImageOutputFormat>("image/webp");
+  const [format, setFormat] = useState<ImageOutputFormat>(initialFormat);
   const [quality, setQuality] = useState(0.85);
   const [downloaded, setDownloaded] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
@@ -68,21 +78,19 @@ export default function ImageConverterClient() {
         try {
           const pageCount = await getPdfPageCount(file);
           if (pageCount > LARGE_PDF_PAGES) {
-            setPdfNotice(
-              `"${file.name}" has ${pageCount} pages. Converting them all can take a while and use a lot of memory — remove pages you don't need.`,
-            );
+            setPdfNotice(fill(t.largePdf, { file: file.name, pages: pageCount }));
           }
           const pdfItems: Item[] = Array.from({ length: pageCount }, (_, i) => ({
             id: String(nextId.current++),
             file,
-            name: `${baseName(file.name)} — page ${i + 1}`,
+            name: fill(t.pageName, { file: baseName(file.name), page: i + 1 }),
             kind: "pdf-page" as const,
             pageNumber: i + 1,
             status: "pending" as const,
           }));
           setItems((prev) => [...prev, ...pdfItems]);
         } catch {
-          setPdfError(`Could not read "${file.name}" as a PDF.`);
+          setPdfError(fill(t.pdfUnreadable, { file: file.name }));
         }
       }
     }
@@ -137,18 +145,14 @@ export default function ImageConverterClient() {
           }),
         );
       },
-      (err) => {
+      () => {
         converting.current = false;
         setItems((prev) =>
-          prev.map((i) =>
-            i.id === item.id
-              ? { ...i, status: "error", error: err instanceof Error ? err.message : "Conversion failed." }
-              : i,
-          ),
+          prev.map((i) => (i.id === item.id ? { ...i, status: "error", error: t.convertFailed } : i)),
         );
       },
     );
-  }, [items, format, quality]);
+  }, [items, format, quality, t.convertFailed]);
 
   useEffect(() => {
     return () => {
@@ -214,25 +218,18 @@ export default function ImageConverterClient() {
   const doneCount = items.filter((i) => i.status === "done").length;
 
   return (
-    <div className="mx-auto max-w-5xl px-6 py-12">
-      <h1 className="text-2xl font-bold">Image Converter</h1>
-      <p className="mt-1 text-muted">
-        Convert images between JPG, PNG, and WebP, or turn a PDF into one image per page — entirely
-        in your browser. Nothing is uploaded.
-      </p>
-
-      <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_320px]">
+    <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div>
           <label
             onDrop={handleDrop}
             onDragOver={(e) => e.preventDefault()}
             className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-border bg-background-raised px-6 py-12 text-center hover:border-accent"
           >
-            <span className="font-semibold">Drop images or PDFs here, or click to choose files</span>
-            <span className="text-sm text-muted">JPG, PNG, WebP, PDF, or other browser-readable images</span>
+            <span className="font-semibold">{t.dropTitle}</span>
+            <span className="text-sm text-muted">{t.dropHint}</span>
             <input
               type="file"
-              accept="image/*,application/pdf"
+              accept={accept}
               multiple
               onChange={(e) => addFiles(e.target.files)}
               className="hidden"
@@ -263,7 +260,7 @@ export default function ImageConverterClient() {
                       {item.status === "done" && item.blob && (
                         <> {item.originalSize !== undefined && "→"} {formatBytes(item.blob.size)} · .{outputExt}</>
                       )}
-                      {item.status === "pending" && " · converting…"}
+                      {item.status === "pending" && ` · ${t.converting}`}
                       {item.status === "error" && (
                         <span className="text-error"> · {item.error}</span>
                       )}
@@ -275,7 +272,7 @@ export default function ImageConverterClient() {
                       onClick={() => downloadItem(item)}
                       className="shrink-0 rounded-lg border border-border px-3 py-1.5 text-sm font-semibold hover:bg-background"
                     >
-                      Download
+                      {t.download}
                     </button>
                   )}
                   <button
@@ -283,7 +280,7 @@ export default function ImageConverterClient() {
                     onClick={() => removeItem(item.id)}
                     className="shrink-0 text-sm font-semibold text-error hover:underline"
                   >
-                    Remove
+                    {t.remove}
                   </button>
                 </div>
               ))}
@@ -293,7 +290,7 @@ export default function ImageConverterClient() {
 
         <div className="flex flex-col gap-4 rounded-2xl border border-border-soft bg-background-raised p-6">
           <label className="flex flex-col gap-1.5 text-sm font-semibold">
-            Convert to
+            {t.convertTo}
             <select
               value={format}
               onChange={(e) => changeSettings(e.target.value as ImageOutputFormat, quality)}
@@ -309,7 +306,7 @@ export default function ImageConverterClient() {
 
           {supportsQuality(format) && (
             <label className="flex flex-col gap-1.5 text-sm font-semibold">
-              Quality ({Math.round(quality * 100)}%)
+              {fill(t.quality, { quality: Math.round(quality * 100) })}
               <input
                 type="range"
                 min={0.4}
@@ -327,34 +324,12 @@ export default function ImageConverterClient() {
             disabled={doneCount === 0 || zipping}
             className="mt-2 rounded-lg bg-gradient-to-br from-accent to-accent-2 px-4 py-2.5 text-sm font-bold text-white shadow-md shadow-accent/30 hover:brightness-105 disabled:opacity-60"
           >
-            {zipping ? "Preparing ZIP…" : doneCount > 1 ? `Download all as ZIP (${doneCount})` : `Download all (${doneCount})`}
+            {zipping
+              ? t.preparingZip
+              : fill(doneCount > 1 ? t.downloadAllZip : t.downloadAll, { count: doneCount })}
           </button>
-          {downloaded && <SupportNote />}
+          {downloaded && <SupportNote t={support} />}
         </div>
-      </div>
-
-      <ToolInfoSection title="How this converter works">
-        <p>
-          Every conversion happens locally, using your browser&apos;s built-in image engine — no
-          file is ever uploaded to a server. For images, that means a JPG, PNG, or WebP is
-          decoded and re-encoded directly in memory; for a PDF, each page is rendered onto a
-          canvas at high resolution and then exported as its own image. Because nothing leaves
-          your device, this also works with sensitive documents you wouldn&apos;t want to upload
-          elsewhere.
-        </p>
-        <p>
-          JPG doesn&apos;t support transparency, so converting a PNG or PDF page with a
-          transparent background to JPG fills it with white first — that&apos;s expected, not a
-          bug. WebP usually gives the smallest file size at a given quality, which is why
-          it&apos;s the default.
-        </p>
-      </ToolInfoSection>
-
-      <ToolInfoSection title="Frequently asked questions">
-        <Faq items={IMAGE_CONVERTER_FAQ} />
-      </ToolInfoSection>
-
-      <AdSlot slot={AD_SLOTS.toolPageBottom} className="mt-10" />
     </div>
   );
 }

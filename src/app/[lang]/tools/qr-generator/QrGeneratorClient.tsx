@@ -8,25 +8,13 @@ import {
   type QrTemplateInput,
 } from "@/lib/qr-templates";
 import { renderQrToCanvas, renderQrToSvgString, type DotStyle } from "@/lib/qr-render";
-import AdSlot from "@/components/AdSlot";
 import SupportNote from "@/components/SupportNote";
-import { AD_SLOTS } from "@/lib/ads";
-import { ToolInfoSection, Faq } from "@/components/ToolInfo";
-import { QR_FAQ } from "./content";
+import type { Dictionary } from "@/dictionaries";
+import { format } from "@/lib/i18n";
 
-const QR_TYPES: { value: QrType; label: string }[] = [
-  { value: "text", label: "Text / URL" },
-  { value: "wifi", label: "WiFi" },
-];
+const ERROR_LEVELS = ["L", "M", "Q", "H"] as const;
 
-const ERROR_LEVELS = [
-  { value: "L", label: "Low (7%)" },
-  { value: "M", label: "Medium (15%)" },
-  { value: "Q", label: "Quartile (25%)" },
-  { value: "H", label: "High (30%)" },
-] as const;
-
-type ErrorLevel = (typeof ERROR_LEVELS)[number]["value"];
+type ErrorLevel = (typeof ERROR_LEVELS)[number];
 
 const ERROR_LEVEL_RANK: Record<ErrorLevel, number> = { L: 0, M: 1, Q: 2, H: 3 };
 
@@ -48,7 +36,18 @@ function loadImage(dataUrl: string): Promise<HTMLImageElement> {
   });
 }
 
-export default function QrGeneratorClient() {
+export default function QrGeneratorClient({
+  t,
+  support,
+}: {
+  t: Dictionary["qr"]["ui"];
+  support: Dictionary["support"];
+}) {
+  const qrTypes: { value: QrType; label: string }[] = [
+    { value: "text", label: t.typeText },
+    { value: "wifi", label: t.typeWifi },
+  ];
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const [input, setInput] = useState<QrTemplateInput>(DEFAULT_INPUT);
@@ -81,11 +80,11 @@ export default function QrGeneratorClient() {
     const file = event.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith("image/")) {
-      setError("Logo must be an image file.");
+      setError(t.errors.logoNotImage);
       return;
     }
     if (file.size > 2 * 1024 * 1024) {
-      setError("Logo image must be under 2MB.");
+      setError(t.errors.logoTooBig);
       return;
     }
     const reader = new FileReader();
@@ -132,11 +131,11 @@ export default function QrGeneratorClient() {
     } catch (err) {
       setHasResult(false);
       setLastData(null);
-      setError(err instanceof QrTemplateError ? err.message : "Could not generate that QR code.");
+      setError(err instanceof QrTemplateError ? t.errors[err.code] : t.errors.generic);
     } finally {
       setBusy(false);
     }
-  }, [input, size, errorLevel, fgColor, bgColor, eyeColor, dotStyle, logoDataUrl]);
+  }, [input, size, errorLevel, fgColor, bgColor, eyeColor, dotStyle, logoDataUrl, t]);
 
   function handleDownloadPng() {
     const canvas = canvasRef.current;
@@ -166,25 +165,21 @@ export default function QrGeneratorClient() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-6 py-12">
-      <h1 className="text-2xl font-bold">QR Code Generator</h1>
-      <p className="mt-1 text-muted">Text, links, or WiFi — generated instantly in your browser.</p>
-
-      <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_320px]">
+    <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="rounded-2xl border border-border-soft bg-background-raised p-6">
           <div className="flex flex-wrap gap-2">
-            {QR_TYPES.map((t) => (
+            {qrTypes.map((option) => (
               <button
-                key={t.value}
+                key={option.value}
                 type="button"
-                onClick={() => update("type", t.value)}
+                onClick={() => update("type", option.value)}
                 className={`rounded-full px-4 py-1.5 text-sm font-semibold transition ${
-                  input.type === t.value
+                  input.type === option.value
                     ? "bg-gradient-to-br from-accent to-accent-2 text-white shadow-sm"
                     : "bg-background text-muted hover:text-foreground"
                 }`}
               >
-                {t.label}
+                {option.label}
               </button>
             ))}
           </div>
@@ -192,7 +187,7 @@ export default function QrGeneratorClient() {
           <div className="mt-6 flex flex-col gap-4">
             {input.type === "text" && (
               <label className="flex flex-col gap-1.5 text-sm font-semibold">
-                Text or URL
+                {t.textLabel}
                 <textarea
                   value={input.data}
                   onChange={(e) => update("data", e.target.value)}
@@ -205,21 +200,21 @@ export default function QrGeneratorClient() {
 
             {input.type === "wifi" && (
               <>
-                <Field label="Network name (SSID)">
+                <Field label={t.ssid}>
                   <input
                     value={input.wifiSsid}
                     onChange={(e) => update("wifiSsid", e.target.value)}
                     className={fieldClass}
                   />
                 </Field>
-                <Field label="Password">
+                <Field label={t.password}>
                   <input
                     value={input.wifiPassword}
                     onChange={(e) => update("wifiPassword", e.target.value)}
                     className={fieldClass}
                   />
                 </Field>
-                <Field label="Encryption">
+                <Field label={t.encryption}>
                   <select
                     value={input.wifiEncryption}
                     onChange={(e) =>
@@ -229,7 +224,7 @@ export default function QrGeneratorClient() {
                   >
                     <option value="WPA">WPA/WPA2</option>
                     <option value="WEP">WEP</option>
-                    <option value="nopass">None</option>
+                    <option value="nopass">{t.encryptionNone}</option>
                   </select>
                 </Field>
                 <label className="flex items-center gap-2 text-sm font-semibold">
@@ -238,14 +233,14 @@ export default function QrGeneratorClient() {
                     checked={input.wifiHidden}
                     onChange={(e) => update("wifiHidden", e.target.checked)}
                   />
-                  Hidden network
+                  {t.hidden}
                 </label>
               </>
             )}
           </div>
 
           <div className="mt-6 grid gap-4 sm:grid-cols-2">
-            <Field label={`Size (${size}px)`}>
+            <Field label={format(t.size, { size })}>
               <input
                 type="range"
                 min={160}
@@ -255,26 +250,25 @@ export default function QrGeneratorClient() {
                 onChange={(e) => setSize(Number(e.target.value))}
               />
             </Field>
-            <Field label="Error correction">
+            <Field label={t.errorCorrection}>
               <select
                 value={errorLevel}
                 onChange={(e) => setErrorLevel(e.target.value as ErrorLevel)}
                 className={fieldClass}
               >
-                {ERROR_LEVELS.map((lvl) => (
-                  <option key={lvl.value} value={lvl.value}>
-                    {lvl.label}
+                {ERROR_LEVELS.map((level) => (
+                  <option key={level} value={level}>
+                    {t.levels[level]}
                   </option>
                 ))}
               </select>
               {recommendedMinLevel && (
                 <span className="font-normal text-xs text-muted">
-                  Raised automatically — {logoDataUrl ? "a logo needs" : "dot style needs"} more
-                  error correction to stay scannable.
+                  {logoDataUrl ? t.raisedForLogo : t.raisedForDots}
                 </span>
               )}
             </Field>
-            <Field label="Foreground color">
+            <Field label={t.foreground}>
               <input
                 type="color"
                 value={fgColor}
@@ -282,7 +276,7 @@ export default function QrGeneratorClient() {
                 className="h-10 w-full rounded-lg border border-border"
               />
             </Field>
-            <Field label="Background color">
+            <Field label={t.background}>
               <input
                 type="color"
                 value={bgColor}
@@ -290,7 +284,7 @@ export default function QrGeneratorClient() {
                 className="h-10 w-full rounded-lg border border-border"
               />
             </Field>
-            <Field label="Dot style">
+            <Field label={t.dotStyle}>
               <select
                 value={dotStyle}
                 onChange={(e) => {
@@ -300,11 +294,11 @@ export default function QrGeneratorClient() {
                 }}
                 className={fieldClass}
               >
-                <option value="square">Square</option>
-                <option value="dots">Dots</option>
+                <option value="square">{t.dotSquare}</option>
+                <option value="dots">{t.dotDots}</option>
               </select>
             </Field>
-            <Field label="Eye color">
+            <Field label={t.eyeColor}>
               <input
                 type="color"
                 value={eyeColor}
@@ -312,7 +306,7 @@ export default function QrGeneratorClient() {
                 className="h-10 w-full rounded-lg border border-border"
               />
             </Field>
-            <Field label="Logo (optional)">
+            <Field label={t.logo}>
               <input type="file" accept="image/*" onChange={handleLogoUpload} className="text-sm" />
             </Field>
           </div>
@@ -329,7 +323,7 @@ export default function QrGeneratorClient() {
             disabled={busy}
             className="mt-6 rounded-lg bg-gradient-to-br from-accent to-accent-2 px-5 py-2.5 font-bold text-white shadow-md shadow-accent/30 hover:brightness-105 disabled:opacity-60"
           >
-            {busy ? "Working…" : "Generate QR code"}
+            {busy ? t.working : t.generate}
           </button>
         </div>
 
@@ -340,7 +334,7 @@ export default function QrGeneratorClient() {
           />
           {!hasResult && (
             <p className="py-16 text-center text-sm text-muted">
-              Your generated QR code will appear here.
+              {t.placeholder}
             </p>
           )}
 
@@ -352,44 +346,20 @@ export default function QrGeneratorClient() {
                   onClick={handleDownloadPng}
                   className="flex-1 rounded-lg border border-border px-4 py-2 text-sm font-semibold hover:bg-background"
                 >
-                  Download PNG
+                  {t.downloadPng}
                 </button>
                 <button
                   type="button"
                   onClick={handleDownloadSvg}
                   className="flex-1 rounded-lg border border-border px-4 py-2 text-sm font-semibold hover:bg-background"
                 >
-                  Download SVG
+                  {t.downloadSvg}
                 </button>
               </div>
-              {downloaded && <SupportNote className="mt-2" />}
+              {downloaded && <SupportNote t={support} className="mt-2" />}
             </div>
           )}
         </div>
-      </div>
-
-      <ToolInfoSection title="How this QR code generator works">
-        <p>
-          Pick a type — plain text, a link, or WiFi credentials — fill in the fields, and the QR
-          code renders instantly as you type. Nothing is sent to a server: the code, the color
-          choices, and even the optional logo are drawn entirely in your browser using the
-          canvas. That also means it works offline once the page has loaded, and your data (like
-          a WiFi password) never leaves your device.
-        </p>
-        <p>
-          Error correction controls how much of the code can be damaged, covered, or obscured (by
-          a logo, for instance) before it stops scanning reliably. Higher levels make the code
-          slightly denser but more forgiving — the generator raises it automatically when you add
-          a logo or switch to the dotted style, so scans stay reliable without you having to think
-          about it.
-        </p>
-      </ToolInfoSection>
-
-      <ToolInfoSection title="Frequently asked questions">
-        <Faq items={QR_FAQ} />
-      </ToolInfoSection>
-
-      <AdSlot slot={AD_SLOTS.toolPageBottom} className="mt-10" />
     </div>
   );
 }
