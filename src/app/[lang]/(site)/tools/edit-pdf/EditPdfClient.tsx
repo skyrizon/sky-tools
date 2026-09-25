@@ -31,7 +31,16 @@ type T = Dictionary["editPdf"]["ui"];
 const sourceKey = (page: Page) => `${page.file.name}|${page.file.lastModified}|${page.file.size}|${page.index}`;
 const HISTORY_LIMIT = 50;
 
-export default function EditPdfClient({ t, support }: { t: T; support: Dictionary["support"] }) {
+export default function EditPdfClient({
+  t,
+  support,
+  fullscreen = false,
+}: {
+  t: T;
+  support: Dictionary["support"];
+  /** Fill the whole window (the standalone studio page) instead of a framed box. */
+  fullscreen?: boolean;
+}) {
   const [pages, setPages] = useState<Page[]>([]);
   const [past, setPast] = useState<Page[][]>([]);
   const [future, setFuture] = useState<Page[][]>([]);
@@ -295,11 +304,18 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
 
   // ----- render -----
   if (files.length === 0) {
-    return (
-      <div className="rounded-2xl border border-border-soft bg-background-raised p-4 sm:p-8">
+    const dropZone = (
+      <>
         <FileDropZone title={t.dropTitle} hint={t.dropHint} accept="application/pdf,.pdf" onFiles={addFiles} />
         {error && <p className="mt-4 rounded-lg bg-error-soft px-4 py-3 text-sm font-semibold text-error">{error}</p>}
+      </>
+    );
+    return fullscreen ? (
+      <div className="flex flex-1 items-center justify-center p-6">
+        <div className="w-full max-w-xl">{dropZone}</div>
       </div>
+    ) : (
+      <div className="rounded-2xl border border-border-soft bg-background-raised p-4 sm:p-8">{dropZone}</div>
     );
   }
 
@@ -311,7 +327,13 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
   const canvasImage = current ? previews[sourceKey(current)] || thumbs[sourceKey(current)] : undefined;
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-border bg-background-raised shadow-lg shadow-black/5">
+    <div
+      className={
+        fullscreen
+          ? "flex flex-1 flex-col bg-background-raised lg:min-h-0"
+          : "overflow-hidden rounded-2xl border border-border bg-background-raised shadow-lg shadow-black/5"
+      }
+    >
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-1 border-b border-border px-2 py-2 sm:px-3">
         <span className="mr-2 flex min-w-0 items-center gap-2 px-1 text-sm font-semibold">
@@ -362,7 +384,11 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
 
       {error && <p className="border-b border-border bg-error-soft px-4 py-2 text-sm font-semibold text-error">{error}</p>}
 
-      <div className="grid grid-cols-1 lg:h-[min(78vh,820px)] lg:grid-cols-[184px_minmax(0,1fr)_264px]">
+      <div
+        className={`grid grid-cols-1 lg:grid-cols-[184px_minmax(0,1fr)_264px] ${
+          fullscreen ? "lg:min-h-0 lg:flex-1" : "lg:h-[min(78vh,820px)]"
+        }`}
+      >
         {/* Page rail */}
         <aside className="order-2 border-t border-border lg:order-none lg:overflow-y-auto lg:border-r lg:border-t-0">
           <p className="hidden px-4 pt-3 text-xs font-semibold uppercase tracking-wide text-muted lg:block">{t.pages}</p>

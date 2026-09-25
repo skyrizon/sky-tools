@@ -357,6 +357,23 @@ const en = {
   },
 
   editPdf: {
+    launch: {
+      title: "Edit your PDF in PDF Studio",
+      body: "The studio opens full screen in a new tab, with page thumbnails on the left, a large preview in the middle, and every page action on the right.",
+      features: [
+        "Rotate, delete, duplicate, and reorder pages",
+        "Add pages from other PDFs",
+        "Select several pages at once",
+        "Undo, redo, and keyboard shortcuts",
+      ],
+      open: "Open PDF Studio",
+      newTab: "Opens in a new tab · nothing is uploaded",
+    },
+    studio: {
+      title: "PDF Studio",
+      metaTitle: "PDF Studio — Rotate, Delete & Reorder PDF Pages",
+      help: "Help & FAQ",
+    },
     intro: "Fix a PDF's pages — rotate, remove, reorder, or add more — and save a new copy. Nothing is uploaded.",
     howTitle: "How editing PDF pages works",
     howBody: [

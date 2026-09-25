@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { getDictionary } from "@/dictionaries";
-import { hasLocale } from "@/lib/i18n";
+import { hasLocale, localePath } from "@/lib/i18n";
 import { toolMetadata } from "@/lib/seo";
 import ToolPageShell from "@/components/ToolPageShell";
-import EditPdfClient from "./EditPdfClient";
+import StudioLauncher from "./StudioLauncher";
 
 export async function generateMetadata({ params }: PageProps<"/[lang]/tools/edit-pdf">): Promise<Metadata> {
   const { lang } = await params;
@@ -25,9 +25,8 @@ export default async function EditPdfPage({ params }: PageProps<"/[lang]/tools/e
       howTitle={dict.editPdf.howTitle}
       howBody={dict.editPdf.howBody}
       faq={dict.editPdf.faq}
-      studio
     >
-      <EditPdfClient t={dict.editPdf.ui} support={dict.support} />
+      <StudioLauncher href={localePath(lang, "/studio/edit-pdf")} t={dict.editPdf.launch} />
     </ToolPageShell>
   );
 }
