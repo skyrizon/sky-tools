@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { TOOLS } from "@/lib/tools";
+import { CONVERSIONS } from "@/lib/conversions";
 import { LOCALES, localePath } from "@/lib/i18n";
 import { absoluteUrl } from "@/lib/site";
 
@@ -8,6 +9,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const pages = [
     { path: "/", priority: 1 },
     ...TOOLS.map((tool) => ({ path: `/tools/${tool.slug}`, priority: 0.9 })),
+    ...CONVERSIONS.map((c) => ({ path: `/convert/${c.slug}`, priority: 0.8 })),
     { path: "/community", priority: 0.5 },
     { path: "/about", priority: 0.4 },
     { path: "/privacy", priority: 0.2 },

@@ -482,6 +482,184 @@ const en = {
     },
   },
 
+  conversions: {
+    linksTitle: "Popular conversions",
+    whyTitle: "Why convert {from} to {to}?",
+    dropTitle: "Drop {from} files here, or click to choose",
+    dropHint: "Converted to {to} in your browser — nothing is uploaded",
+    allFormats: "All formats in the Image Converter",
+    pairs: {
+      "png-to-jpg": {
+        seoTitle: "PNG to JPG Converter — Free, No Upload",
+        h1: "PNG to JPG Converter",
+        metaDescription:
+          "Convert PNG to JPG in your browser. Batch convert, pick the quality, and download as ZIP. Transparent areas become white. Free, private, no upload.",
+        intro: "Turn PNG images into smaller JPG files that open everywhere.",
+        body: [
+          "PNG is lossless, which keeps screenshots and graphics crisp but makes photos heavy. Saving a photo as JPG usually cuts the size by half or more, and JPG is accepted by every app, website form, and printer.",
+          "JPG has no transparency, so any see-through areas in your PNG are filled with white. If you need to keep transparency, convert to WebP instead — it supports it and is even smaller.",
+        ],
+        faq: [
+          {
+            q: "Why is my JPG bigger than the PNG?",
+            a: "For flat graphics, logos, and screenshots with large areas of one color, PNG's lossless compression can beat JPG. JPG shines on photos. For graphics, keep PNG or try WebP.",
+          },
+          {
+            q: "What quality should I use?",
+            a: "80–90% looks identical to the original for most photos. Go lower for email attachments and higher for printing.",
+          },
+        ],
+      },
+      "jpg-to-png": {
+        seoTitle: "JPG to PNG Converter — Free Online, No Upload",
+        h1: "JPG to PNG Converter",
+        metaDescription:
+          "Convert JPG images to PNG in your browser — ideal for editing or apps that need PNG. Batch convert and download as ZIP. Free, and nothing is uploaded.",
+        intro: "Convert JPG photos to lossless PNG for editing or apps that require PNG.",
+        body: [
+          "Converting to PNG stops further quality loss: every time a JPG is edited and saved again it's re-compressed, while a PNG is saved exactly as it is. That makes PNG a good working format if you'll edit an image several times.",
+          "Converting won't bring back detail that JPG compression already removed, and the PNG will usually be larger. A JPG's white background also stays white — PNG allows transparency, but it isn't created automatically.",
+        ],
+        faq: [
+          {
+            q: "Will converting to PNG improve quality?",
+            a: "No. It preserves the image exactly as it is now, but it can't restore detail lost when the JPG was created.",
+          },
+          {
+            q: "Why is the PNG so much larger?",
+            a: "PNG stores every pixel without lossy compression. For photos that's often 3–10 times the size of a JPG — expected, and the price of lossless storage.",
+          },
+        ],
+      },
+      "webp-to-jpg": {
+        seoTitle: "WebP to JPG Converter — Open WebP Images Anywhere",
+        h1: "WebP to JPG Converter",
+        metaDescription:
+          "Convert WebP images to JPG so they open in any app, editor, or upload form. Batch convert in your browser and download as ZIP. Free, no upload.",
+        intro: "Downloaded an image that won't open? Convert WebP to the universally supported JPG.",
+        body: [
+          "Many websites serve images as WebP because it's small and fast, but older photo editors, some upload forms, and certain phones or printers still don't accept it. JPG works virtually everywhere.",
+          "Transparent areas in a WebP get a white background in JPG. At 90% quality the result looks the same as the original, though the file is usually a little larger than the WebP.",
+        ],
+        faq: [
+          {
+            q: "Why do images I save from websites end up as WebP?",
+            a: "Sites convert images to WebP so pages load faster. When you save one, you get the WebP the site served, even if the original was a JPG.",
+          },
+          {
+            q: "Can I convert animated WebP?",
+            a: "Only the first frame is converted, because JPG can't hold animation.",
+          },
+        ],
+      },
+      "jpg-to-webp": {
+        seoTitle: "JPG to WebP Converter — Smaller Images for the Web",
+        h1: "JPG to WebP Converter",
+        metaDescription:
+          "Convert JPG photos to WebP for smaller, faster-loading web images. Choose the quality, batch convert, and download as ZIP. Free and private in your browser.",
+        intro: "Make photos lighter for websites and apps by converting JPG to WebP.",
+        body: [
+          "WebP typically produces files 25–35% smaller than JPG at the same visual quality. On a website that means faster pages and better Core Web Vitals — one of the easiest speed wins there is.",
+          "All modern browsers support WebP. If you also need a fallback for very old software, keep the original JPG alongside it.",
+        ],
+        faq: [
+          {
+            q: "Is WebP supported everywhere?",
+            a: "Every current browser — Chrome, Safari, Firefox, and Edge — supports it, as do most modern apps. Some older desktop software and printers may not.",
+          },
+          {
+            q: "What quality matches my JPG?",
+            a: "WebP at around 80% usually looks like a 90% JPG while being noticeably smaller. Compare the file sizes shown after converting.",
+          },
+        ],
+      },
+      "png-to-webp": {
+        seoTitle: "PNG to WebP Converter — Keep Transparency, Cut Size",
+        h1: "PNG to WebP Converter",
+        metaDescription:
+          "Convert PNG to WebP to shrink images while keeping transparency — great for logos, icons, and web graphics. Batch convert and ZIP download. Free, no upload.",
+        intro: "Shrink PNG images — transparency included — by converting them to WebP.",
+        body: [
+          "WebP supports transparent backgrounds like PNG but compresses far better. Logos, icons, and product cut-outs often end up a fraction of their PNG size, which speeds up any page that uses them.",
+          "At 100% quality the result is visually lossless; lower the quality for even smaller files. Screenshots with sharp text look best at 90% or higher.",
+        ],
+        faq: [
+          {
+            q: "Does WebP keep my transparent background?",
+            a: "Yes. Transparent and semi-transparent areas are preserved.",
+          },
+          {
+            q: "When should I stay with PNG?",
+            a: "When the image goes into software that can't open WebP, or when you need a guaranteed pixel-perfect copy for further editing.",
+          },
+        ],
+      },
+      "webp-to-png": {
+        seoTitle: "WebP to PNG Converter — Free, Keeps Transparency",
+        h1: "WebP to PNG Converter",
+        metaDescription:
+          "Convert WebP images to PNG for editing and compatibility, with transparency preserved. Batch convert in your browser and download as ZIP. Free and private.",
+        intro: "Convert WebP to PNG to edit it anywhere, with transparent areas intact.",
+        body: [
+          "PNG is the go-to format for editing and design tools, and it keeps transparency — the best choice when a WebP logo, sticker, or cut-out needs to go into software that doesn't read WebP.",
+          "Because PNG is lossless, the file is usually larger than the WebP. That's normal, and nothing further is lost in the conversion.",
+        ],
+        faq: [
+          {
+            q: "Should I pick PNG or JPG when converting from WebP?",
+            a: "PNG if the image has transparency or sharp graphics and text; JPG if it's a photo and you want a smaller file.",
+          },
+          {
+            q: "Is animation kept?",
+            a: "No — only the first frame of an animated WebP is converted.",
+          },
+        ],
+      },
+      "pdf-to-jpg": {
+        seoTitle: "PDF to JPG Converter — Every Page as an Image",
+        h1: "PDF to JPG Converter",
+        metaDescription:
+          "Convert PDF pages to JPG images in your browser. Each page becomes a high-resolution JPG; download one by one or as a ZIP. Free, private, no upload.",
+        intro: "Turn every page of a PDF into a JPG — ready to share, post, or drop into slides.",
+        body: [
+          "Each page is rendered at high resolution and saved as its own JPG, so it can go into a chat app, a social post, or a presentation where a PDF won't fit. Download single pages or everything at once as a ZIP.",
+          "Because the PDF never leaves your device, this is safe for statements, contracts, and IDs. For text-heavy pages where you want perfectly sharp lettering, PDF to PNG is the better choice.",
+        ],
+        faq: [
+          {
+            q: "What resolution are the images?",
+            a: "Pages are rendered at twice their normal size (about 144 DPI), up to 4000 pixels on the longest side — sharp enough for screens and most printing.",
+          },
+          {
+            q: "Can I convert only some pages?",
+            a: "Remove the pages you don't need from the list before downloading, or extract them first with Split PDF.",
+          },
+        ],
+      },
+      "pdf-to-png": {
+        seoTitle: "PDF to PNG Converter — Sharp, Lossless Page Images",
+        h1: "PDF to PNG Converter",
+        metaDescription:
+          "Convert PDF pages to PNG images with crisp, lossless text and graphics. Download pages one by one or as a ZIP. Runs in your browser — free, nothing uploaded.",
+        intro: "Convert PDF pages to lossless PNG images with crisp text and diagrams.",
+        body: [
+          "PNG keeps every edge sharp, which makes it ideal for pages full of text, tables, charts, or line drawings — no blurry halos around letters like JPG can produce. It's also the best starting point if you'll edit the page image afterwards.",
+          "PNG files are larger than JPG. If the pages are mostly photos, or you just need something small to share, PDF to JPG gives much smaller files.",
+        ],
+        faq: [
+          {
+            q: "Are transparent areas kept?",
+            a: "PDF pages normally have a white background, which is preserved. Pages that are genuinely transparent stay transparent in PNG.",
+          },
+          {
+            q: "Is my PDF uploaded?",
+            a: "No. Every page is rendered in your browser and the file never leaves your device.",
+          },
+        ],
+      },
+    },
+  },
+
   about: {
     title: "About Sky Tools",
     metaDescription:

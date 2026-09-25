@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { getDictionary } from "@/dictionaries";
 import { hasLocale } from "@/lib/i18n";
 import { toolMetadata } from "@/lib/seo";
+import ConversionLinks from "@/components/ConversionLinks";
 import ToolPageShell from "@/components/ToolPageShell";
 import ImageConverterClient from "./ImageConverterClient";
 
@@ -29,6 +30,7 @@ export default async function ImageConverterPage({
       howTitle={dict.converter.howTitle}
       howBody={dict.converter.howBody}
       faq={dict.converter.faq}
+      extra={<ConversionLinks lang={lang} dict={dict} />}
     >
       <ImageConverterClient t={dict.converter.ui} support={dict.support} />
     </ToolPageShell>

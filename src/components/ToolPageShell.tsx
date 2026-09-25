@@ -22,6 +22,9 @@ export default function ToolPageShell({
   howTitle,
   howBody,
   faq,
+  heading,
+  structuredData,
+  extra,
   children,
 }: {
   slug: ToolSlug;
@@ -31,13 +34,19 @@ export default function ToolPageShell({
   howTitle: string;
   howBody: string[];
   faq: FaqItem[];
+  /** Overrides the tool name as the page heading (format landing pages). */
+  heading?: string;
+  /** Overrides the default tool structured data. */
+  structuredData?: object[];
+  /** Rendered after the FAQ, before the ad (e.g. links to related conversions). */
+  extra?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <>
-      <JsonLd data={toolJsonLd(dict, lang, slug, faq)} />
+      <JsonLd data={structuredData ?? toolJsonLd(dict, lang, slug, faq)} />
       <div className="mx-auto max-w-5xl px-6 py-12">
-        <h1 className="text-2xl font-bold">{dict.tools[slug].name}</h1>
+        <h1 className="text-2xl font-bold">{heading ?? dict.tools[slug].name}</h1>
         <p className="mt-1 text-muted">{intro}</p>
 
         {children}
@@ -51,6 +60,8 @@ export default function ToolPageShell({
         <ToolInfoSection title={dict.common.faqTitle}>
           <Faq items={faq} />
         </ToolInfoSection>
+
+        {extra}
 
         <AdSlot slot={AD_SLOTS.toolPageBottom} className="mt-10" />
       </div>

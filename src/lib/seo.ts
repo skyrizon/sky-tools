@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import type { Dictionary } from "@/dictionaries";
 import type { ToolSlug } from "@/lib/tools";
+import type { ConversionSlug } from "@/lib/conversions";
 import { localeAlternates, localePath, type Locale } from "@/lib/i18n";
 import { SITE_NAME, SITE_URL, absoluteUrl } from "@/lib/site";
 
@@ -48,16 +49,30 @@ export function toolMetadata(dict: Dictionary, locale: Locale, slug: ToolSlug): 
   });
 }
 
-/** WebApplication + BreadcrumbList (+ FAQPage) structured data for a tool page. */
-export function toolJsonLd(dict: Dictionary, locale: Locale, slug: ToolSlug, faq: FaqItem[]): object[] {
-  const text = dict.tools[slug];
-  const url = absoluteUrl(localePath(locale, `/tools/${slug}`));
+/** WebApplication + BreadcrumbList (+ FAQPage) for any page that hosts a tool. */
+function appJsonLd({
+  locale,
+  name,
+  description,
+  path,
+  crumbs,
+  faq,
+}: {
+  locale: Locale;
+  name: string;
+  description: string;
+  path: string;
+  /** Breadcrumb trail after the home page, ending with this page. */
+  crumbs: { name: string; path: string }[];
+  faq: FaqItem[];
+}): object[] {
+  const url = absoluteUrl(localePath(locale, path));
   return [
     {
       "@context": "https://schema.org",
       "@type": "WebApplication",
-      name: text.name,
-      description: text.metaDescription,
+      name,
+      description,
       url,
       inLanguage: locale,
       applicationCategory: "UtilitiesApplication",
@@ -71,13 +86,13 @@ export function toolJsonLd(dict: Dictionary, locale: Locale, slug: ToolSlug, faq
       "@context": "https://schema.org",
       "@type": "BreadcrumbList",
       itemListElement: [
-        {
+        { "@type": "ListItem", position: 1, name: SITE_NAME, item: absoluteUrl(localePath(locale, "/")) },
+        ...crumbs.map((crumb, i) => ({
           "@type": "ListItem",
-          position: 1,
-          name: dict.common.breadcrumbHome,
-          item: absoluteUrl(localePath(locale, "/")),
-        },
-        { "@type": "ListItem", position: 2, name: text.name, item: url },
+          position: i + 2,
+          name: crumb.name,
+          item: absoluteUrl(localePath(locale, crumb.path)),
+        })),
       ],
     },
     ...(faq.length > 0
@@ -95,6 +110,36 @@ export function toolJsonLd(dict: Dictionary, locale: Locale, slug: ToolSlug, faq
         ]
       : []),
   ];
+}
+
+export function toolJsonLd(dict: Dictionary, locale: Locale, slug: ToolSlug, faq: FaqItem[]): object[] {
+  const text = dict.tools[slug];
+  const path = `/tools/${slug}`;
+  return appJsonLd({
+    locale,
+    name: text.name,
+    description: text.metaDescription,
+    path,
+    crumbs: [{ name: text.name, path }],
+    faq,
+  });
+}
+
+/** Structured data for a format landing page, nested under the Image Converter. */
+export function conversionJsonLd(dict: Dictionary, locale: Locale, slug: ConversionSlug): object[] {
+  const text = dict.conversions.pairs[slug];
+  const path = `/convert/${slug}`;
+  return appJsonLd({
+    locale,
+    name: text.h1,
+    description: text.metaDescription,
+    path,
+    crumbs: [
+      { name: dict.tools["image-converter"].name, path: "/tools/image-converter" },
+      { name: text.h1, path },
+    ],
+    faq: text.faq,
+  });
 }
 
 /** WebSite + Organization structured data for the homepage. */

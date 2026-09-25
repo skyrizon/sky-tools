@@ -14,7 +14,7 @@ Two primary audiences:
 
 ## Product Purpose
 
-Sky Tools is a growing collection of small, focused, free web tools, hosted under one site. There are no user accounts. The first tool is a QR Code Generator (text/URL, WiFi, contact card, SMS templates, optional logo, PNG export). More tools will be added over time behind the same shared foundation (layout, tool registry, community/feedback).
+Sky Tools is a growing collection of small, focused, free web tools, hosted under one site. There are no user accounts. Current tools (September 2026): QR Code Generator (text/URL, WiFi, optional logo, PNG/SVG), QR Code Scanner, Image Converter, Image Compressor, Images to PDF, Merge PDF, and Split PDF, plus format landing pages such as `/convert/png-to-jpg`. The site is bilingual: English at unprefixed URLs and Thai under `/th`. More tools will be added over time behind the same shared foundation (layout, tool registry, dictionaries, community/feedback).
 
 ## Positioning
 
@@ -22,7 +22,7 @@ Not yet settled as a single sharp claim. Confirmed underlying facts that any fut
 
 ## Operating Context
 
-Visitors arrive per-tool (e.g. `/tools/qr-generator`), not through a guided funnel. Visitors can send bug reports and ideas from `/community`; submissions are posted to a Discord Forum channel via webhook. The tool roster is expected to grow; each new tool is added to a central registry (`src/lib/tools.ts`) and picked up automatically by the homepage and nav.
+Visitors arrive per-tool (e.g. `/tools/qr-generator`, `/th/tools/pdf-merge`, `/convert/pdf-to-jpg`), mostly from search, not through a guided funnel. Visitors can send bug reports and ideas from `/community`; submissions are posted to a Discord Forum channel via webhook. The tool roster is expected to grow; each new tool is added to a central registry (`src/lib/tools.ts`) and picked up automatically by the homepage and nav.
 
 ## Capabilities and Constraints
 
