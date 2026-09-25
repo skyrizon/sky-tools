@@ -379,6 +379,10 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
     function onWheel(event: WheelEvent) {
       const row = (event.target as Element).closest?.<HTMLElement>("[data-hscroll]");
       if (!row || row.scrollWidth <= row.clientWidth || Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
+      // Menus opened from the row (e.g. the font list) scroll themselves.
+      for (let el = event.target as HTMLElement | null; el && el !== row; el = el.parentElement) {
+        if (el.getAttribute("role") === "dialog" || el.scrollHeight > el.clientHeight + 1) return;
+      }
       event.preventDefault();
       row.scrollLeft += event.deltaY;
     }

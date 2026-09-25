@@ -196,7 +196,7 @@ export default function FontPicker({
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-1.5" role="listbox">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-1.5" role="listbox">
             {builtins.length > 0 && <p className={section}>{t.builtIn}</p>}
             {builtins.map((id) => (
               <button key={id} type="button" role="option" aria-selected={value === id} onClick={() => choose(id)} className={row(value === id)}>
