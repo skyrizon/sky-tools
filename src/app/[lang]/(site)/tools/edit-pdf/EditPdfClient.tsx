@@ -126,6 +126,9 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
   const renderingPreview = useRef<string | null>(null);
   const urlsRef = useRef<string[]>([]);
   const railRef = useRef<HTMLOListElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [areaWidth, setAreaWidth] = useState(800);
+  const [visibleIds, setVisibleIds] = useState<number[]>([]);
   const imageInput = useRef<HTMLInputElement>(null);
 
   const currentIndex = Math.max(0, pages.findIndex((p) => p.id === currentId));
@@ -175,6 +178,11 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
     [currentPageId],
   );
 
+  /** Live update of any page by id (history is recorded by beginChange). */
+  const updatePageById = useCallback((id: number, fn: (page: StudioPage) => StudioPage) => {
+    setPages((prev) => prev.map((p) => (p.id === id ? fn(p) : p)));
+  }, []);
+
   const updateSelectedAnn = useCallback(
     (fn: (a: Annotation) => Annotation) => {
       if (!selectedAnnId) return;
@@ -192,18 +200,20 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
   useEffect(() => () => urlsRef.current.forEach((url) => URL.revokeObjectURL(url)), []);
 
   useEffect(() => {
-    if (!current) return;
-    const key = sourceKey(current);
-    if (previews[key] !== undefined || renderingPreview.current === key) return;
+    if (renderingPreview.current) return;
+    const wanted = [current, ...pages.filter((p) => visibleIds.includes(p.id))].filter(Boolean) as StudioPage[];
+    const next = wanted.find((p) => previews[sourceKey(p)] === undefined);
+    if (!next) return;
+    const key = sourceKey(next);
     renderingPreview.current = key;
-    renderPdfPageToImage(current.file, current.index + 1, "image/jpeg", 0.88, 2)
+    renderPdfPageToImage(next.file, next.index + 1, "image/jpeg", 0.88, 2)
       .then((blob) => remember(URL.createObjectURL(blob)))
       .catch(() => "")
       .then((url) => {
         renderingPreview.current = null;
         setPreviews((prev) => ({ ...prev, [key]: url }));
       });
-  }, [current, previews]);
+  }, [current, pages, visibleIds, previews]);
 
   useEffect(() => {
     if (renderingThumb.current) return;
@@ -223,6 +233,79 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
   useEffect(() => {
     railRef.current?.querySelector(`[data-page-id="${currentId}"]`)?.scrollIntoView({ block: "nearest", inline: "nearest" });
   }, [currentId]);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(([entry]) => setAreaWidth(entry.contentRect.width));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [files.length]);
+
+  // The page taking up the most of the view becomes the current page. Measured on
+  // scroll (throttled) rather than with IntersectionObserver so it is exact and cheap.
+  const pageIdsKey = pages.map((p) => p.id).join(",");
+  useEffect(() => {
+    const root = scrollRef.current;
+    if (!root) return;
+    let queued = false;
+    function measure() {
+      queued = false;
+      const view = root!.getBoundingClientRect();
+      const onScreen: number[] = [];
+      let best: number | null = null;
+      let bestHeight = 0;
+      root!.querySelectorAll<HTMLElement>("[data-canvas-page]").forEach((el) => {
+        const r = el.getBoundingClientRect();
+        const height = Math.min(r.bottom, view.bottom) - Math.max(r.top, view.top);
+        if (height <= 0) return;
+        const id = Number(el.dataset.canvasPage);
+        onScreen.push(id);
+        if (height > bestHeight) {
+          best = id;
+          bestHeight = height;
+        }
+      });
+      setVisibleIds((prev) => (prev.join(",") === onScreen.join(",") ? prev : onScreen));
+      if (best === null) return;
+      const id: number = best;
+      setCurrentId(id);
+      // Follow the scroll with the page selection, unless several pages are selected on purpose.
+      setSelected((prev) => (prev.size <= 1 && !prev.has(id) ? new Set([id]) : prev));
+    }
+    function onScroll() {
+      if (queued) return;
+      queued = true;
+      setTimeout(measure, 80);
+    }
+    measure();
+    root.addEventListener("scroll", onScroll, { passive: true });
+    return () => root.removeEventListener("scroll", onScroll);
+  }, [pageIdsKey]);
+
+  // Ctrl/⌘ + mouse wheel zooms the canvas.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    function onWheel(event: WheelEvent) {
+      if (!event.ctrlKey && !event.metaKey) return;
+      event.preventDefault();
+      setZoom((z) => {
+        const now = z === "fit" ? ZOOMS[2] : z;
+        return event.deltaY < 0
+          ? (ZOOMS.find((v) => v > now + 0.001) ?? ZOOMS[ZOOMS.length - 1])
+          : (ZOOMS.filter((v) => v < now - 0.001).pop() ?? ZOOMS[0]);
+      });
+    }
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [files.length]);
+
+  const scrollToPage = useCallback((id: number) => {
+    scrollRef.current
+      ?.querySelector(`[data-canvas-page="${id}"]`)
+      ?.scrollIntoView({ block: "start", behavior: "smooth" });
+  }, []);
 
   // Selecting an object opens its panel.
   const selectAnn = useCallback((id: string | null) => {
@@ -286,6 +369,7 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
     }
     setCurrentId(page.id);
     setSelectedAnnId(null);
+    scrollToPage(page.id);
   }
 
   const goTo = useCallback(
@@ -296,8 +380,9 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
       setSelected(new Set([page.id]));
       setSelectedAnnId(null);
       anchor.current = pages.indexOf(page);
+      scrollToPage(page.id);
     },
-    [pages],
+    [pages, scrollToPage],
   );
 
   const rotatePages = useCallback(
@@ -444,19 +529,14 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
   }, []);
 
   // ----- forms -----
-  const currentForms = current ? forms.get(current.file) : undefined;
-  const pageWidgets = useMemo(
-    () => (current && currentForms ? currentForms.widgets.filter((w) => w.pageIndex === current.index) : []),
-    [current, currentForms],
-  );
+  const widgetsFor = (page: StudioPage) => forms.get(page.file)?.widgets.filter((w) => w.pageIndex === page.index) ?? [];
   const totalFields = [...forms.values()].reduce((n, f) => n + new Set(f.widgets.map((w) => w.fieldName)).size, 0);
 
-  function setFormValue(fieldName: string, value: FormValue) {
-    if (!current) return;
+  function setFormValue(file: File, fieldName: string, value: FormValue) {
     setForms((prev) => {
       const next = new Map(prev);
-      const entry = next.get(current.file);
-      if (entry) next.set(current.file, { ...entry, values: { ...entry.values, [fieldName]: value } });
+      const entry = next.get(file);
+      if (entry) next.set(file, { ...entry, values: { ...entry.values, [fieldName]: value } });
       return next;
     });
   }
@@ -558,8 +638,8 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
               ? { ...a, points: a.points.map((v, i) => v + (i % 2 === 0 ? dx : dy)) }
               : { ...a, x: a.x + dx, y: a.y + dy },
         );
-      } else if (!mod && (event.key === "ArrowLeft" || event.key === "ArrowUp")) goTo(currentIndex - 1);
-      else if (!mod && (event.key === "ArrowRight" || event.key === "ArrowDown")) goTo(currentIndex + 1);
+      } else if (!mod && event.key === "ArrowLeft") goTo(currentIndex - 1);
+      else if (!mod && event.key === "ArrowRight") goTo(currentIndex + 1);
       else if (!mod && (event.key === "Delete" || event.key === "Backspace")) {
         if (selectedAnnId) deleteAnn();
         else removePages();
@@ -844,48 +924,72 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
           </ol>
         </aside>
 
-        {/* Canvas */}
-        <section className="relative order-1 h-[65vh] min-h-[380px] bg-background lg:order-none lg:h-auto">
-          {current ? (
+        {/* Canvas: all pages in one scrolling column */}
+        <section className="relative order-1 h-[70vh] min-h-[380px] bg-background lg:order-none lg:h-auto">
+          <div ref={scrollRef} className="absolute inset-0 overflow-auto overscroll-contain">
+            {pages.length === 0 ? (
+              <p className="flex h-full items-center justify-center px-6 text-center text-sm text-muted">{t.empty}</p>
+            ) : (
+              <div className="mx-auto flex w-max min-w-full flex-col items-center gap-6 px-6 pb-16 pt-12">
+                {pages.map((page, i) => {
+                  const quarter = ((page.rotation % 180) + 180) % 180 === 90;
+                  const finalWidth = quarter ? page.size.h : page.size.w;
+                  const scale = zoom === "fit" ? Math.min(2.2, Math.max(0.2, (areaWidth - 64) / finalWidth)) : zoom;
+                  const pageForms = forms.get(page.file);
+                  return (
+                    <div key={page.id} data-canvas-page={page.id} className="flex scroll-mt-10 flex-col items-center gap-2">
+                      <div className={`rounded-sm ${page.id === current?.id ? "ring-2 ring-accent/60 ring-offset-4 ring-offset-background" : ""}`}>
+                        <PageEditor
+                          page={page}
+                          imageUrl={previews[sourceKey(page)] || thumbs[sourceKey(page)] || undefined}
+                          tool={tool}
+                          style={style}
+                          scale={scale}
+                          onActivate={() => {
+                            if (page.id === currentId) return;
+                            setCurrentId(page.id);
+                            setSelected(new Set([page.id]));
+                          }}
+                          selectedId={selectedAnnId}
+                          onSelect={selectAnn}
+                          editingId={editingId}
+                          onEditingChange={setEditingId}
+                          beginChange={beginChange}
+                          updatePage={(fn) => updatePageById(page.id, fn)}
+                          pendingImage={pendingImage}
+                          onPlaced={onPlaced}
+                          formWidgets={widgetsFor(page)}
+                          formValues={pageForms?.values ?? {}}
+                          onFormChange={(name, value) => setFormValue(page.file, name, value)}
+                          docOptions={docOptions}
+                          pageNumber={i + 1}
+                          pageTotal={pages.length}
+                          newTextLabel={t.newText}
+                        />
+                      </div>
+                      <span className="text-xs font-semibold text-muted">{i + 1}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {current && (
             <>
-              <PageEditor
-                key={current.id}
-                page={current}
-                imageUrl={previews[sourceKey(current)] || thumbs[sourceKey(current)] || undefined}
-                tool={tool}
-                style={style}
-                zoom={zoom}
-                selectedId={selectedAnnId}
-                onSelect={selectAnn}
-                editingId={editingId}
-                onEditingChange={setEditingId}
-                beginChange={beginChange}
-                updatePage={updateCurrent}
-                pendingImage={pendingImage}
-                onPlaced={onPlaced}
-                formWidgets={pageWidgets}
-                formValues={currentForms?.values ?? {}}
-                onFormChange={setFormValue}
-                docOptions={docOptions}
-                pageNumber={currentIndex + 1}
-                pageTotal={pages.length}
-                newTextLabel={t.newText}
-              />
               <p className="pointer-events-none absolute left-1/2 top-3 max-w-[90%] -translate-x-1/2 truncate rounded-full bg-foreground/80 px-3 py-1 text-xs font-medium text-white">
                 {t.hints[tool]}
               </p>
-              <button type="button" onClick={() => goTo(currentIndex - 1)} disabled={currentIndex === 0} aria-label={t.previous} className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full border border-border bg-background-raised p-2 shadow-sm hover:text-accent-hover disabled:hidden">
-                <ChevronLeft className="h-5 w-5" />
-              </button>
-              <button type="button" onClick={() => goTo(currentIndex + 1)} disabled={currentIndex >= pages.length - 1} aria-label={t.next} className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full border border-border bg-background-raised p-2 shadow-sm hover:text-accent-hover disabled:hidden">
-                <ChevronRight className="h-5 w-5" />
-              </button>
-              <span className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-foreground/80 px-3 py-1 text-xs font-semibold text-white">
-                {fill(t.pageOf, { page: currentIndex + 1, count: pages.length })}
-              </span>
+              <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-full bg-foreground/80 px-1.5 py-1 text-xs font-semibold text-white">
+                <button type="button" onClick={() => goTo(currentIndex - 1)} disabled={currentIndex === 0} aria-label={t.previous} className="rounded-full p-1 hover:bg-white/15 disabled:opacity-30">
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <span className="px-1">{fill(t.pageOf, { page: currentIndex + 1, count: pages.length })}</span>
+                <button type="button" onClick={() => goTo(currentIndex + 1)} disabled={currentIndex >= pages.length - 1} aria-label={t.next} className="rounded-full p-1 hover:bg-white/15 disabled:opacity-30">
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
             </>
-          ) : (
-            <p className="absolute inset-0 flex items-center justify-center px-6 text-center text-sm text-muted">{t.empty}</p>
           )}
         </section>
 

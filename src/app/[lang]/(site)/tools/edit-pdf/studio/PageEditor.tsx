@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useRef } from "react";
 import { pageNumberLabel } from "@/lib/pdf-studio/export";
 import {
   textLineHeight,
@@ -56,7 +56,8 @@ export default function PageEditor({
   imageUrl,
   tool,
   style,
-  zoom,
+  scale,
+  onActivate,
   selectedId,
   onSelect,
   editingId,
@@ -77,8 +78,10 @@ export default function PageEditor({
   imageUrl?: string;
   tool: Tool;
   style: StyleState;
-  /** Pixels per point, or "fit" to fill the canvas area. */
-  zoom: number | "fit";
+  /** Pixels per point. */
+  scale: number;
+  /** Called when the user starts interacting with this page (it becomes the current page). */
+  onActivate: () => void;
   selectedId: string | null;
   onSelect: (id: string | null) => void;
   editingId: string | null;
@@ -98,28 +101,14 @@ export default function PageEditor({
   pageTotal: number;
   newTextLabel: string;
 }) {
-  const areaRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
   const drag = useRef<Drag | null>(null);
-  const [area, setArea] = useState({ w: 800, h: 600 });
-
-  useLayoutEffect(() => {
-    const el = areaRef.current;
-    if (!el) return;
-    const observer = new ResizeObserver(([entry]) =>
-      setArea({ w: entry.contentRect.width, h: entry.contentRect.height }),
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
 
   const rotation = ((page.rotation % 360) + 360) % 360;
   const quarter = rotation % 180 === 90;
   const { w: pw, h: ph } = page.size;
   const finalW = quarter ? ph : pw;
   const finalH = quarter ? pw : ph;
-  const scale =
-    zoom === "fit" ? Math.max(0.1, Math.min((area.w - 48) / finalW, (area.h - 48) / finalH)) : zoom;
   const w = pw * scale;
   const h = ph * scale;
   const frameW = finalW * scale;
@@ -292,9 +281,6 @@ export default function PageEditor({
     }
   }
 
-  // Leave text editing when the page changes.
-  useEffect(() => () => onEditingChange(null), [page.id, onEditingChange]);
-
   const selected = page.annotations.find((a) => a.id === selectedId);
   const editing = page.annotations.find((a) => a.id === editingId && a.type === "text");
   const selectedBounds = selected ? annotationBounds(selected) : null;
@@ -310,9 +296,13 @@ export default function PageEditor({
   const margin = Math.max(18, pageNumbers.size * 1.6);
 
   return (
-    <div ref={areaRef} className="absolute inset-0 overflow-auto">
-      <div className="flex min-h-full min-w-full items-center justify-center p-6" style={{ width: "max-content" }}>
-        <div ref={frameRef} className="relative shrink-0" style={{ width: frameW, height: frameH }}>
+        <div
+          ref={frameRef}
+          className="relative shrink-0"
+          style={{ width: frameW, height: frameH }}
+          onPointerDownCapture={onActivate}
+          onFocusCapture={onActivate}
+        >
           <div
             className="absolute bg-white shadow-xl shadow-black/10"
             style={{
@@ -526,7 +516,5 @@ export default function PageEditor({
             </svg>
           )}
         </div>
-      </div>
-    </div>
   );
 }
