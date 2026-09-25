@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Charm, Kanit, Noto_Serif_Thai, Sarabun, Sriracha } from "next/font/google";
+import localFont from "next/font/local";
 import { CircleHelp } from "lucide-react";
 import { getDictionary } from "@/dictionaries";
 import { hasLocale, localeAlternates, localePath } from "@/lib/i18n";
@@ -16,6 +17,16 @@ const signFont2 = Charm({ weight: "700", subsets: ["thai", "latin"], variable: "
 const sarabun = Sarabun({ weight: ["400", "700"], subsets: ["thai", "latin"], variable: "--font-sarabun" });
 const serifThai = Noto_Serif_Thai({ weight: ["400", "700"], subsets: ["thai", "latin"], variable: "--font-serif-thai" });
 const kanit = Kanit({ weight: ["400", "700"], subsets: ["thai", "latin"], variable: "--font-kanit" });
+// TH Sarabun PSK (DIP & SIPA license; the same files are embedded into saved PDFs).
+const thSarabun = localFont({
+  src: [
+    { path: "../../../../../../public/fonts/THSarabunPSK-Regular.ttf", weight: "400", style: "normal" },
+    { path: "../../../../../../public/fonts/THSarabunPSK-Italic.ttf", weight: "400", style: "italic" },
+    { path: "../../../../../../public/fonts/THSarabunPSK-Bold.ttf", weight: "700", style: "normal" },
+    { path: "../../../../../../public/fonts/THSarabunPSK-BoldItalic.ttf", weight: "700", style: "italic" },
+  ],
+  variable: "--font-th-sarabun",
+});
 
 export async function generateMetadata({ params }: PageProps<"/[lang]/studio/edit-pdf">): Promise<Metadata> {
   const { lang } = await params;
@@ -39,7 +50,7 @@ export default async function PdfStudioPage({ params }: PageProps<"/[lang]/studi
   return (
     <div
       data-studio-root
-      className={`${signFont1.variable} ${signFont2.variable} ${sarabun.variable} ${serifThai.variable} ${kanit.variable} flex h-dvh flex-col overflow-hidden bg-background`}
+      className={`${signFont1.variable} ${signFont2.variable} ${sarabun.variable} ${serifThai.variable} ${kanit.variable} ${thSarabun.variable} flex h-dvh flex-col overflow-hidden bg-background`}
     >
       <header className="flex items-center gap-3 border-b border-border bg-background-raised px-4 py-2">
         <Wordmark href={localePath(lang, "/")} height={32} />

@@ -464,7 +464,7 @@ const th: Dictionary = {
         loadFailed: "โหลดฟอนต์นี้ไม่ได้ ลองเลือกฟอนต์อื่น",
         upload: "อัปโหลดไฟล์ฟอนต์ (.ttf, .otf, .woff)",
         uploadFailed: "ไฟล์นี้ไม่ใช่ฟอนต์ที่ใช้ได้",
-        sarabunNote: "หา TH Sarabun อยู่ใช่ไหม? เลือก Sarabun ซึ่งเป็นฉบับโอเพนซอร์สของ TH Sarabun New หรืออัปโหลดไฟล์ TH SarabunPSK ของคุณเอง หมายเหตุ: TH Sarabun 16 pt ≈ Sarabun 12 pt",
+        sarabunNote: "มี TH Sarabun PSK ให้เลือกแล้ว รวมถึงตัวเอียง ตัวอักษรจะเล็กกว่าปกติ: TH Sarabun PSK 16 pt ≈ Sarabun 12 pt ต้องการฟอนต์อื่น? อัปโหลดไฟล์ .ttf, .otf หรือ .woff ได้",
       },
       textProps: {
         font: "ฟอนต์",

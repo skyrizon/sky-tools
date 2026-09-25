@@ -463,7 +463,7 @@ const en = {
         loadFailed: "Couldn't load that font. Try another one.",
         upload: "Upload a font file (.ttf, .otf, .woff)",
         uploadFailed: "That file isn't a font PDF Studio can use.",
-        sarabunNote: "Looking for TH Sarabun? Choose Sarabun, the open version of TH Sarabun New, or upload your own TH SarabunPSK file. Note: TH Sarabun 16 pt ≈ Sarabun 12 pt.",
+        sarabunNote: "TH Sarabun PSK is built in, including italic. It runs small: TH Sarabun PSK 16 pt ≈ Sarabun 12 pt. Need another font? Upload a .ttf, .otf, or .woff file.",
       },
       textProps: {
         font: "Font",

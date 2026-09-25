@@ -1,7 +1,9 @@
 /**
  * Fonts PDF Studio can draw on screen and embed in a saved PDF.
  *
- * - Built-in fonts ship with the site (Thai + Latin, SIL OFL).
+ * - Built-in fonts ship with the site (Thai + Latin): SIL OFL, and TH Sarabun PSK
+ *   under the DIP & SIPA license (free to redistribute unmodified; see
+ *   public/fonts/THSarabunPSK-LICENSE.txt).
  * - Google Fonts are loaded on demand: the files come from fonts.gstatic.com.
  * - Uploaded fonts are read from a file on the visitor's device (e.g. TH SarabunPSK).
  *
@@ -11,6 +13,16 @@
 import { unzlibSync } from "fflate";
 
 export const STUDIO_FONTS = {
+  thsarabun: {
+    label: "TH Sarabun PSK",
+    css: "var(--font-th-sarabun), 'TH SarabunPSK', 'TH Sarabun PSK'",
+    files: {
+      regular: "/fonts/THSarabunPSK-Regular.ttf",
+      bold: "/fonts/THSarabunPSK-Bold.ttf",
+      italic: "/fonts/THSarabunPSK-Italic.ttf",
+      boldItalic: "/fonts/THSarabunPSK-BoldItalic.ttf",
+    },
+  },
   sarabun: {
     label: "Sarabun",
     css: "var(--font-sarabun), 'Sarabun'",
@@ -31,7 +43,7 @@ export const STUDIO_FONTS = {
     css: "var(--font-kanit), 'Kanit'",
     files: { regular: "/fonts/Kanit-Regular.ttf", bold: "/fonts/Kanit-Bold.ttf" },
   },
-} as const;
+} as const satisfies Record<string, { label: string; css: string; files: { regular: string; bold: string; italic?: string; boldItalic?: string } }>;
 
 export type BuiltinFontId = keyof typeof STUDIO_FONTS;
 export type StudioFontId = string;
@@ -104,6 +116,7 @@ export function fontCss(id: string | undefined): string {
 
 /** Whether the font has a real italic face (otherwise italic is a synthetic slant). */
 export function hasRealItalic(id: string | undefined, bold: boolean): boolean {
+  if (isBuiltin(id)) return bold ? "boldItalic" in STUDIO_FONTS[id].files : "italic" in STUDIO_FONTS[id].files;
   const font = id ? loaded.get(id) : undefined;
   return !!font?.files[bold ? "boldItalic" : "italic"];
 }
@@ -311,7 +324,9 @@ export async function fontBytes(
   italic: boolean,
 ): Promise<{ bytes: ArrayBuffer; synthItalic: boolean; synthBold: boolean }> {
   if (!id || isBuiltin(id)) {
-    const url = STUDIO_FONTS[(id as BuiltinFontId) ?? "plex"].files[bold ? "bold" : "regular"];
+    const files: { regular: string; bold: string; italic?: string; boldItalic?: string } = STUDIO_FONTS[(id as BuiltinFontId) ?? "plex"].files;
+    const italicFile = italic ? (bold ? files.boldItalic : files.italic) : undefined;
+    const url = italicFile ?? files[bold ? "bold" : "regular"];
     if (!fileCache.has(url)) {
       fileCache.set(
         url,
@@ -321,7 +336,7 @@ export async function fontBytes(
         }),
       );
     }
-    return { bytes: await fileCache.get(url)!, synthItalic: italic, synthBold: false };
+    return { bytes: await fileCache.get(url)!, synthItalic: italic && !italicFile, synthBold: false };
   }
   const font = loaded.get(id);
   if (!font) return fontBytes(FALLBACK_FONT, bold, italic);
@@ -340,6 +355,7 @@ export async function fontBytes(
 export function matchFont(originalName: string): BuiltinFontId {
   if (/times|serif|georgia|garamond|minion|cambria|book|roman/i.test(originalName)) return "serif";
   if (/kanit|prompt|mitr/i.test(originalName)) return "kanit";
-  if (/sarabun|thsarabun|angsana|cordia|browallia|tahoma/i.test(originalName)) return "sarabun";
+  if (/ths*sarabun/i.test(originalName)) return "thsarabun";
+  if (/sarabun|angsana|cordia|browallia|tahoma/i.test(originalName)) return "sarabun";
   return "plex";
 }
