@@ -374,6 +374,18 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
     return () => el.removeEventListener("wheel", onWheel);
   }, [files.length]);
 
+  // On narrow screens the toolbars scroll sideways; let a mouse wheel do that too.
+  useEffect(() => {
+    function onWheel(event: WheelEvent) {
+      const row = (event.target as Element).closest?.<HTMLElement>("[data-hscroll]");
+      if (!row || row.scrollWidth <= row.clientWidth || Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
+      event.preventDefault();
+      row.scrollLeft += event.deltaY;
+    }
+    window.addEventListener("wheel", onWheel, { passive: false });
+    return () => window.removeEventListener("wheel", onWheel);
+  }, []);
+
   // Two fingers pinch to zoom and drag to pan (one finger scrolls, or draws with a drawing tool).
   useEffect(() => {
     const el = scrollRef.current;
@@ -970,7 +982,7 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-background-raised">
       {/* Main toolbar */}
-      <div className="flex items-center gap-1 overflow-x-auto border-b border-border px-2 py-1.5 [scrollbar-width:none] sm:px-3 lg:flex-wrap lg:overflow-visible">
+      <div data-hscroll className="flex items-center gap-1 overflow-x-auto border-b border-border px-2 py-1.5 [scrollbar-width:thin] sm:px-3 lg:flex-wrap lg:overflow-visible">
         <button
           type="button"
           onClick={() => togglePanel("left")}
@@ -1065,7 +1077,7 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
 
       {/* Tool palette + style bar */}
       <div className="flex flex-col gap-1 border-b border-border px-2 py-1.5 sm:px-3 lg:flex-row lg:flex-wrap lg:items-center lg:gap-x-3">
-        <div className="flex items-center gap-0.5 overflow-x-auto [scrollbar-width:none] lg:flex-wrap lg:overflow-visible" role="toolbar">
+        <div data-hscroll className="flex items-center gap-0.5 overflow-x-auto [scrollbar-width:thin] lg:flex-wrap lg:overflow-visible" role="toolbar">
           {TOOLS.map(({ tool: value, icon: Icon, key }) => (
             <button
               key={value}
@@ -1082,7 +1094,7 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
         </div>
 
         {(showColor || showWidth || showTextProps || showFill) && <span className="hidden h-6 w-px bg-border lg:block" />}
-        <div className="flex items-center gap-x-3 overflow-x-auto [scrollbar-width:none] empty:hidden lg:contents">
+        <div data-hscroll className="flex items-center gap-x-3 overflow-x-auto [scrollbar-width:thin] empty:hidden lg:contents">
 
         {showColor && (
           <div className="flex shrink-0 items-center gap-1" aria-label={t.style.color}>
