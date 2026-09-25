@@ -461,9 +461,9 @@ const th: Dictionary = {
         listFailed: "โหลดรายชื่อ Google Fonts ไม่ได้ ฟอนต์ในระบบยังใช้ได้ตามปกติ",
         noResults: "ไม่พบฟอนต์ที่ค้นหา",
         refine: "พิมพ์ชื่อเพื่อค้นหาฟอนต์เพิ่มเติม",
-        loadFailed: "โหลดฟอนต์นี้ไม่ได้ ลองเลือกฟอนต์อื่น",
+        loadFailed: "ฟอนต์นี้ใช้ใน PDF ไม่ได้ ลองเลือกฟอนต์อื่น",
         upload: "อัปโหลดไฟล์ฟอนต์ (.ttf, .otf, .woff)",
-        uploadFailed: "ไฟล์นี้ไม่ใช่ฟอนต์ที่ใช้ได้",
+        uploadFailed: "ไฟล์นี้ไม่ใช่ฟอนต์ หรือเป็นฟอนต์ที่ใช้ใน PDF ไม่ได้",
         sarabunNote: "มี TH Sarabun PSK ให้เลือกแล้ว รวมถึงตัวเอียง ตัวอักษรจะเล็กกว่าปกติ: TH Sarabun PSK 16 pt ≈ Sarabun 12 pt ต้องการฟอนต์อื่น? อัปโหลดไฟล์ .ttf, .otf หรือ .woff ได้",
       },
       textProps: {

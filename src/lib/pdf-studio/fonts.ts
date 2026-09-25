@@ -192,6 +192,29 @@ async function register(font: LoadedFont) {
   changed();
 }
 
+/**
+ * Whether pdf-lib can put this font into a saved PDF. Some font files trip it up
+ * and would make saving fail, so fonts are tested before they can be chosen.
+ */
+async function canEmbed(data: ArrayBuffer, subset: boolean, sample = "Aa"): Promise<boolean> {
+  const [{ PDFDocument }, { default: fontkit }] = await Promise.all([import("pdf-lib"), import("@pdf-lib/fontkit")]);
+  try {
+    // Padded like export does: fontkit can read just past the last glyph.
+    const bytes = new Uint8Array(data.byteLength + 64);
+    bytes.set(new Uint8Array(data));
+    const doc = await PDFDocument.create();
+    doc.registerFontkit(fontkit);
+    const font = await doc.embedFont(bytes, { subset });
+    const parsed = fontkit.create(bytes);
+    const text = [...sample].filter((ch) => parsed.hasGlyphForCodePoint(ch.codePointAt(0)!)).join("");
+    if (text) doc.addPage().drawText(text, { font });
+    await doc.save();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** Downloads a Google Fonts family (all available styles) and registers it. */
 export function loadGoogleFont(family: string, thai: boolean): Promise<LoadedFont> {
   const id = `gf:${family}`;
@@ -207,10 +230,13 @@ export function loadGoogleFont(family: string, thai: boolean): Promise<LoadedFon
       await Promise.all(
         (Object.entries(urls) as [Style, string][]).map(async ([style, url]) => {
           const r = await fetch(url);
-          if (r.ok) files[style] = toSfnt(await r.arrayBuffer());
+          if (!r.ok) return;
+          const data = toSfnt(await r.arrayBuffer());
+          // A style that can't be saved into a PDF is left out (bold/italic are then simulated).
+          if (await canEmbed(data, false)) files[style] = data;
         }),
       );
-      if (!files.regular) throw new Error(`Font ${family} failed to download`);
+      if (!files.regular) throw new Error(`Font ${family} can't be used`);
       const font: LoadedFont = { id, label: family, family: `GF ${family}`, source: "google", thai, files };
       await register(font);
       return font;
@@ -233,6 +259,7 @@ export async function loadUploadedFont(file: File): Promise<LoadedFont> {
   } catch {
     throw new Error("Not a font file");
   }
+  if (!(await canEmbed(data, false))) throw new Error("Font can't be saved into a PDF");
   const id = `up:${name}`;
   const font: LoadedFont = { id, label: name, family: `UP ${name}`, source: "upload", thai, files: { regular: data } };
   await register(font);
@@ -256,17 +283,10 @@ async function covers(data: ArrayBuffer, text: string): Promise<boolean> {
   }
 }
 
-// Metric-compatible stand-ins for the standard PDF fonts, which PDFs use without embedding.
-const STANDARD_FONTS: [RegExp, string][] = [
-  [/courier|mono/i, "Cousine"],
-  [/times|roman|serif|georgia/i, "Tinos"],
-  [/helvetica|arial|sans/i, "Arimo"],
-];
-
 /**
  * The closest font for replacing a line of existing PDF text: the PDF's own
- * embedded font when it has every character, a metric-compatible stand-in for
- * the standard fonts, or else the closest built-in font.
+ * embedded font when it has every character and can be saved, or else the
+ * closest built-in font.
  *
  * `ownStyle` means the font is the PDF's exact face, already bold or italic as
  * needed, so the text should not also be made bold or italic.
@@ -276,15 +296,13 @@ export async function fontForPdfText(
   text: string,
 ): Promise<{ font: StudioFontId; ownStyle: boolean }> {
   const cleanName = original.name.replace(/^[A-Z]{6}\+/, "") || "PDF font";
-  // Thai text keeps the Thai built-in match; the Latin stand-ins have no Thai.
-  const thai = /[฀-๿]/.test(text);
   if (original.data) {
     const data = original.data.slice().buffer as ArrayBuffer;
     const id = `pdf:${cleanName}#${data.byteLength}`;
     const existing = loaded.get(id);
     if (existing) {
       if (await covers(existing.files.regular!, text)) return { font: id, ownStyle: true };
-    } else if (await covers(data, text)) {
+    } else if ((await covers(data, text)) && (await canEmbed(data, true, text))) {
       const font: LoadedFont = {
         id,
         label: cleanName,
@@ -297,16 +315,8 @@ export async function fontForPdfText(
         await register(font);
         return { font: id, ownStyle: true };
       } catch {
-        // The browser rejected the file; fall through to a stand-in.
+        // The browser rejected the file; use a built-in font.
       }
-    }
-  }
-  const standIn = !thai && STANDARD_FONTS.find(([pattern]) => pattern.test(cleanName))?.[1];
-  if (standIn) {
-    try {
-      return { font: (await loadGoogleFont(standIn, false)).id, ownStyle: false };
-    } catch {
-      // Offline or blocked: use a built-in font.
     }
   }
   return { font: matchFont(original.name), ownStyle: false };
@@ -355,7 +365,7 @@ export async function fontBytes(
 export function matchFont(originalName: string): BuiltinFontId {
   if (/times|serif|georgia|garamond|minion|cambria|book|roman/i.test(originalName)) return "serif";
   if (/kanit|prompt|mitr/i.test(originalName)) return "kanit";
-  if (/ths*sarabun/i.test(originalName)) return "thsarabun";
+  if (/th\s*sarabun/i.test(originalName)) return "thsarabun";
   if (/sarabun|angsana|cordia|browallia|tahoma/i.test(originalName)) return "sarabun";
   return "plex";
 }

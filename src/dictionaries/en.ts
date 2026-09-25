@@ -460,9 +460,9 @@ const en = {
         listFailed: "Couldn't load the Google Fonts list. Built-in fonts still work.",
         noResults: "No matching fonts.",
         refine: "Type to find more fonts.",
-        loadFailed: "Couldn't load that font. Try another one.",
+        loadFailed: "This font can't be used in a PDF. Try another one.",
         upload: "Upload a font file (.ttf, .otf, .woff)",
-        uploadFailed: "That file isn't a font PDF Studio can use.",
+        uploadFailed: "That file isn't a font, or it's a font that can't be used in a PDF.",
         sarabunNote: "TH Sarabun PSK is built in, including italic. It runs small: TH Sarabun PSK 16 pt ≈ Sarabun 12 pt. Need another font? Upload a .ttf, .otf, or .woff file.",
       },
       textProps: {
