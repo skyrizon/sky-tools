@@ -52,6 +52,7 @@ import { sampleTextColors } from "@/lib/pdf-studio/sample-colors";
 import { PdfToolError, pdfPageCount } from "@/lib/pdf-tools";
 import { exportStudioPdf } from "@/lib/pdf-studio/export";
 import { readFormFields } from "@/lib/pdf-studio/forms";
+import { readMetadata, type PdfMetadata, type PdfMetadataInfo } from "@/lib/pdf-studio/metadata";
 import type {
   Annotation,
   DocOptions,
@@ -114,7 +115,10 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
   const [future, setFuture] = useState<StudioPage[][]>([]);
   const [files, setFiles] = useState<File[]>([]);
   const [forms, setForms] = useState<Map<File, FileForms>>(new Map());
+  const [metaInfo, setMetaInfo] = useState<PdfMetadataInfo | null>(null);
   const [docOptions, setDocOptions] = useState<DocOptions>({
+    metadata: { title: "", author: "", subject: "", keywords: "" },
+    created: null,
     watermark: { enabled: false, text: t.document.watermarkDefault, size: 60, color: "#dc2626", opacity: 0.2 },
     pageNumbers: { enabled: false, position: "bottom-center", template: t.document.templates[0], start: 1, size: 11 },
   });
@@ -395,6 +399,13 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
       }
     }
     if (added.length === 0) return;
+    if (files.length === 0 && newFiles[0]) {
+      const read = await readMetadata(newFiles[0]).catch(() => null);
+      if (read) {
+        setMetaInfo(read.info);
+        setDocOptions((o) => ({ ...o, metadata: read.metadata, created: read.info.created }));
+      }
+    }
     setFiles((prev) => [...prev, ...newFiles]);
     setForms(newForms);
     commit([...pages, ...added]);
@@ -702,6 +713,8 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
     setFuture([]);
     setFiles([]);
     setForms(new Map());
+    setMetaInfo(null);
+    setDocOptions((o) => ({ ...o, metadata: { title: "", author: "", subject: "", keywords: "" }, created: null }));
     setSelected(new Set());
     setCurrentId(null);
     setSelectedAnnId(null);
@@ -1284,6 +1297,47 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
             {panel === "document" && (
               <>
                 <section className="flex flex-col gap-2">
+                  <p className="font-bold">{t.document.properties}</p>
+                  <p className="-mt-1 text-xs text-muted">{t.document.propertiesNote}</p>
+                  {(["title", "author", "subject", "keywords"] as (keyof PdfMetadata)[]).map((fieldName) => (
+                    <label key={fieldName} className={label}>
+                      {t.document[fieldName]}
+                      <input
+                        value={docOptions.metadata[fieldName]}
+                        placeholder={fieldName === "keywords" ? t.document.keywordsHint : undefined}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setDocOptions((o) => ({ ...o, metadata: { ...o.metadata, [fieldName]: value } }));
+                        }}
+                        className={`${field} font-normal text-foreground`}
+                      />
+                    </label>
+                  ))}
+                  {metaInfo && (metaInfo.created || metaInfo.modified || metaInfo.producer || metaInfo.creator) && (
+                    <dl className="mt-1 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
+                      {metaInfo.created && (
+                        <>
+                          <dt className="text-muted">{t.document.created}</dt>
+                          <dd>{metaInfo.created.toLocaleString()}</dd>
+                        </>
+                      )}
+                      {metaInfo.modified && (
+                        <>
+                          <dt className="text-muted">{t.document.modified}</dt>
+                          <dd>{metaInfo.modified.toLocaleString()}</dd>
+                        </>
+                      )}
+                      {(metaInfo.creator || metaInfo.producer) && (
+                        <>
+                          <dt className="text-muted">{t.document.madeWith}</dt>
+                          <dd className="break-words">{[...new Set([metaInfo.creator, metaInfo.producer].filter(Boolean))].join(" · ")}</dd>
+                        </>
+                      )}
+                    </dl>
+                  )}
+                </section>
+
+                <section className="flex flex-col gap-2 border-t border-border-soft pt-4">
                   <label className="flex items-center justify-between font-bold">
                     {t.document.watermark}
                     <input type="checkbox" checked={docOptions.watermark.enabled} onChange={(e) => setDocOptions((o) => ({ ...o, watermark: { ...o.watermark, enabled: e.target.checked } }))} className="h-4 w-4 accent-accent" />

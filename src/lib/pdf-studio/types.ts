@@ -1,3 +1,5 @@
+import type { PdfMetadata } from "@/lib/pdf-studio/metadata";
+
 /**
  * PDF Studio data model. All positions and sizes are in PDF points, measured
  * in the page's *display* orientation (the way pdf.js shows it, with the
@@ -95,6 +97,10 @@ export type PageNumberPosition =
   | "top-left";
 
 export type DocOptions = {
+  /** Title, author, subject, keywords written into the saved file. */
+  metadata: PdfMetadata;
+  /** Creation date of the original, kept on the edited copy. */
+  created: Date | null;
   watermark: { enabled: boolean; text: string; size: number; color: string; opacity: number };
   pageNumbers: {
     enabled: boolean;

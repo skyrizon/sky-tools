@@ -1,6 +1,7 @@
 import { LineCapStyle, PDFDocument, degrees, rgb, type PDFFont, type PDFImage, type PDFPage } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 import { applyFormValues } from "@/lib/pdf-studio/forms";
+import { applyMetadata } from "@/lib/pdf-studio/metadata";
 import {
   displaySize,
   hexToRgb,
@@ -255,5 +256,6 @@ export async function exportStudioPdf({
     });
   }
 
+  applyMetadata(out, options.metadata, options.created);
   return new Blob([(await out.save()) as BlobPart], { type: "application/pdf" });
 }
