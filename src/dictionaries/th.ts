@@ -448,6 +448,24 @@ const th: Dictionary = {
         showRight: "แสดงแผงเครื่องมือ",
         hideRight: "ซ่อนแผงเครื่องมือ",
       },
+      fontPicker: {
+        label: "เลือกฟอนต์",
+        search: "ค้นหาฟอนต์",
+        thaiOnly: "ภาษาไทย",
+        all: "ทั้งหมด",
+        builtIn: "ฟอนต์ในระบบ",
+        inUse: "โหลดแล้ว",
+        noThai: "ไม่มีภาษาไทย",
+        uploaded: "อัปโหลด",
+        loadingList: "กำลังโหลดรายชื่อ Google Fonts…",
+        listFailed: "โหลดรายชื่อ Google Fonts ไม่ได้ ฟอนต์ในระบบยังใช้ได้ตามปกติ",
+        noResults: "ไม่พบฟอนต์ที่ค้นหา",
+        refine: "พิมพ์ชื่อเพื่อค้นหาฟอนต์เพิ่มเติม",
+        loadFailed: "โหลดฟอนต์นี้ไม่ได้ ลองเลือกฟอนต์อื่น",
+        upload: "อัปโหลดไฟล์ฟอนต์ (.ttf, .otf, .woff)",
+        uploadFailed: "ไฟล์นี้ไม่ใช่ฟอนต์ที่ใช้ได้",
+        sarabunNote: "หา TH Sarabun อยู่ใช่ไหม? เลือก Sarabun ซึ่งเป็นฉบับโอเพนซอร์สของ TH Sarabun New หรืออัปโหลดไฟล์ TH SarabunPSK ของคุณเอง หมายเหตุ: TH Sarabun 16 pt ≈ Sarabun 12 pt",
+      },
       textProps: {
         font: "ฟอนต์",
         size: "ขนาดตัวอักษร",
@@ -994,6 +1012,12 @@ const th: Dictionary = {
         heading: "Ko-fi",
         body: [
           "ปุ่ม “Support me” และลิงก์ Ko-fi จะโหลดเนื้อหาจาก ko-fi.com หากคุณเลือกสนับสนุน การชำระเงินจะดำเนินการโดย Ko-fi และผู้ให้บริการชำระเงินภายใต้นโยบายความเป็นส่วนตัวของพวกเขา เราไม่เห็นข้อมูลบัตรของคุณ",
+        ],
+      },
+      {
+        heading: "Google Fonts ใน PDF Studio",
+        body: [
+          "หากคุณเปิดดูหรือเลือกฟอนต์จากรายการ Google Fonts ใน PDF Studio ไฟล์ฟอนต์จะถูกดาวน์โหลดจากเซิร์ฟเวอร์ของ Google (fonts.googleapis.com และ fonts.gstatic.com) ซึ่งจะได้รับที่อยู่ IP และข้อมูลเบราว์เซอร์ของคุณเหมือนคำขอเว็บทั่วไป ส่วนฟอนต์ในระบบและฟอนต์ที่คุณอัปโหลดจะไม่ถูกส่งไปที่ไหน",
         ],
       },
       {

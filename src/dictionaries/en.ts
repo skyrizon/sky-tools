@@ -447,6 +447,24 @@ const en = {
         showRight: "Show tools panel",
         hideRight: "Hide tools panel",
       },
+      fontPicker: {
+        label: "Choose a font",
+        search: "Search fonts",
+        thaiOnly: "Thai",
+        all: "All",
+        builtIn: "Built in",
+        inUse: "Loaded",
+        noThai: "No Thai",
+        uploaded: "Uploaded",
+        loadingList: "Loading Google Fonts…",
+        listFailed: "Couldn't load the Google Fonts list. Built-in fonts still work.",
+        noResults: "No matching fonts.",
+        refine: "Type to find more fonts.",
+        loadFailed: "Couldn't load that font. Try another one.",
+        upload: "Upload a font file (.ttf, .otf, .woff)",
+        uploadFailed: "That file isn't a font PDF Studio can use.",
+        sarabunNote: "Looking for TH Sarabun? Choose Sarabun, the open version of TH Sarabun New, or upload your own TH SarabunPSK file. Note: TH Sarabun 16 pt ≈ Sarabun 12 pt.",
+      },
       textProps: {
         font: "Font",
         size: "Font size",
@@ -995,6 +1013,12 @@ const en = {
         heading: "Ko-fi",
         body: [
           "The “Support me” button and Ko-fi links load content from ko-fi.com. If you choose to leave a tip, the payment is handled by Ko-fi and its payment providers under their own privacy policies; we never see your card details.",
+        ],
+      },
+      {
+        heading: "Google Fonts in PDF Studio",
+        body: [
+          "If you browse or choose a font from the Google Fonts list in PDF Studio, the font files are downloaded from Google's servers (fonts.googleapis.com and fonts.gstatic.com), which receive your IP address and browser details as with any web request. The built-in fonts and fonts you upload are not sent anywhere.",
         ],
       },
       {

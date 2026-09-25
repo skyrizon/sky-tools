@@ -1021,7 +1021,7 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
         )}
         {showTextProps && (
           <>
-            <TextProps value={textStyle} onChange={applyTextStyle} t={t.textProps} compact />
+            <TextProps value={textStyle} onChange={applyTextStyle} t={t.textProps} pickerT={t.fontPicker} compact />
             <div className="flex items-center gap-1" aria-label={t.style.color}>
               {COLORS.filter((col) => col !== "#ffffff").map((col) => (
                 <button
@@ -1291,7 +1291,7 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
                     <p className="mt-1 font-bold">{annTypeLabel(selectedAnn)}</p>
                   </div>
                   {selectedAnn.type === "text" && (
-                    <TextProps value={textStyle} onChange={applyTextStyle} t={t.textProps} />
+                    <TextProps value={textStyle} onChange={applyTextStyle} t={t.textProps} pickerT={t.fontPicker} />
                   )}
                   {selectedAnn.type === "text" && (
                     <label className={label}>

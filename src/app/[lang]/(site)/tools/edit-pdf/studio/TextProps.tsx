@@ -2,9 +2,9 @@
 
 import { AlignCenter, AlignLeft, AlignRight, Bold, Italic, Minus, Plus, Underline } from "lucide-react";
 import type { Dictionary } from "@/dictionaries";
-import { STUDIO_FONTS, type StudioFontId } from "@/lib/pdf-studio/fonts";
+import type { StudioFontId } from "@/lib/pdf-studio/fonts";
 import { DEFAULT_LINE_HEIGHT } from "@/lib/pdf-studio/types";
-import { fontCss } from "./AnnotationShapes";
+import FontPicker from "./FontPicker";
 
 export type TextStyle = {
   font: StudioFontId;
@@ -28,11 +28,13 @@ export default function TextProps({
   value,
   onChange,
   t,
+  pickerT,
   compact = false,
 }: {
   value: TextStyle;
   onChange: (patch: Partial<TextStyle>) => void;
   t: Dictionary["editPdf"]["ui"]["textProps"];
+  pickerT: Dictionary["editPdf"]["ui"]["fontPicker"];
   compact?: boolean;
 }) {
   const setSize = (size: number) => onChange({ size: Math.min(400, Math.max(4, Math.round(size * 2) / 2)) });
@@ -40,22 +42,7 @@ export default function TextProps({
     `rounded-md p-1.5 ${active ? "bg-accent-soft text-accent-hover" : "text-muted hover:bg-background hover:text-foreground"}`;
   const field = "rounded-lg border border-border bg-background-raised px-2 py-1.5 text-sm focus:border-accent focus:outline-none";
 
-  const fontSelect = (
-    <select
-      value={value.font}
-      onChange={(e) => onChange({ font: e.target.value as StudioFontId })}
-      aria-label={t.font}
-      title={t.font}
-      className={`${field} ${compact ? "max-w-[9.5rem]" : "w-full"}`}
-      style={{ fontFamily: fontCss(value.font) }}
-    >
-      {(Object.keys(STUDIO_FONTS) as StudioFontId[]).map((id) => (
-        <option key={id} value={id} style={{ fontFamily: fontCss(id) }}>
-          {STUDIO_FONTS[id].label}
-        </option>
-      ))}
-    </select>
-  );
+  const fontSelect = <FontPicker value={value.font} onChange={(font) => onChange({ font })} t={pickerT} compact={compact} />;
 
   const sizeControl = (
     <div className="flex items-center rounded-lg border border-border bg-background-raised" title={t.size}>

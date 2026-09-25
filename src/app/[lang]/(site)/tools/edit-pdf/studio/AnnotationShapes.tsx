@@ -6,12 +6,9 @@ import {
   type Rect,
   type TextAnnotation,
 } from "@/lib/pdf-studio/types";
-import { ITALIC_SKEW, STUDIO_FONTS, type StudioFontId } from "@/lib/pdf-studio/fonts";
+import { ITALIC_SKEW, fontCss, hasRealItalic, type StudioFontId } from "@/lib/pdf-studio/fonts";
 
-/** CSS font stack for a studio font (defaults to IBM Plex Sans Thai for older objects). */
-export function fontCss(font: StudioFontId | undefined): string {
-  return `${STUDIO_FONTS[font ?? "plex"].css}, sans-serif`;
-}
+export { fontCss };
 
 // Text is measured with a hidden element inside the studio, where the web
 // font CSS variables are defined, so widths match what is drawn.
@@ -23,9 +20,15 @@ if (typeof document !== "undefined" && "fonts" in document) {
   document.fonts.addEventListener?.("loadingdone", () => widthCache.clear());
 }
 
-export function measureLine(line: string, size: number, font: StudioFontId | undefined, bold: boolean): number {
+export function measureLine(
+  line: string,
+  size: number,
+  font: StudioFontId | undefined,
+  bold: boolean,
+  italic = false,
+): number {
   if (typeof document === "undefined") return line.length * size * 0.55;
-  const key = `${font}|${bold}|${size}|${line}`;
+  const key = `${font}|${bold}|${italic}|${size}|${line}`;
   const cached = widthCache.get(key);
   if (cached !== undefined) return cached;
   if (!probe || !probe.isConnected) {
@@ -36,6 +39,8 @@ export function measureLine(line: string, size: number, font: StudioFontId | und
   }
   probe.style.fontFamily = fontCss(font);
   probe.style.fontWeight = bold ? "700" : "400";
+  // Real italic faces can have different widths; synthetic slants don't change width.
+  probe.style.fontStyle = italic && hasRealItalic(font, bold) ? "italic" : "normal";
   probe.style.fontSize = `${size}px`;
   probe.textContent = line || " ";
   const width = probe.getBoundingClientRect().width;
@@ -47,7 +52,7 @@ export function measureLine(line: string, size: number, font: StudioFontId | und
 export function textLayout(ann: TextAnnotation) {
   const lineHeight = ann.lineHeight ?? DEFAULT_LINE_HEIGHT;
   const texts = ann.text.split("\n");
-  const widths = texts.map((line) => measureLine(line, ann.size, ann.font, ann.bold));
+  const widths = texts.map((line) => measureLine(line, ann.size, ann.font, ann.bold, !!ann.italic));
   const width = Math.max(...widths, ann.size * 0.5);
   const lines = texts.map((text, i) => {
     const offset = ann.align === "center" ? (width - widths[i]) / 2 : ann.align === "right" ? width - widths[i] : 0;
@@ -127,7 +132,7 @@ export default function AnnotationShapes({
                   <g
                     key={i}
                     transform={
-                      ann.italic
+                      ann.italic && !hasRealItalic(ann.font, ann.bold)
                         ? `translate(${line.x} ${line.baseline}) skewX(${-ITALIC_SKEW}) translate(${-line.x} ${-line.baseline})`
                         : undefined
                     }
@@ -137,6 +142,7 @@ export default function AnnotationShapes({
                       y={line.baseline}
                       fontSize={ann.size}
                       fontWeight={ann.bold ? 700 : 400}
+                      fontStyle={ann.italic && hasRealItalic(ann.font, ann.bold) ? "italic" : undefined}
                       fill={ann.color}
                       style={{ fontFamily: fontCss(ann.font), whiteSpace: "pre" }}
                     >
