@@ -159,7 +159,7 @@ export default function FontPicker({
         <div
           role="dialog"
           aria-label={t.label}
-          className="fixed inset-x-2 bottom-2 z-50 flex max-h-[70vh] flex-col overflow-hidden rounded-2xl border border-border bg-background-raised shadow-2xl sm:absolute sm:inset-x-auto sm:bottom-auto sm:left-0 sm:top-full sm:mt-1 sm:max-h-[26rem] sm:w-80"
+          className="fixed inset-x-2 bottom-2 z-50 flex max-h-[70dvh] flex-col overflow-hidden rounded-2xl border border-border bg-background-raised shadow-2xl lg:absolute lg:inset-x-auto lg:bottom-auto lg:left-0 lg:top-full lg:mt-1 lg:max-h-[26rem] lg:w-80"
         >
           <div className="border-b border-border p-2">
             <div className="flex items-center gap-2 rounded-lg border border-border px-2.5 focus-within:border-accent">

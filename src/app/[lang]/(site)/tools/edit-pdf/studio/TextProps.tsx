@@ -100,7 +100,7 @@ export default function TextProps({
 
   if (compact) {
     return (
-      <div className="flex flex-wrap items-center gap-1.5">
+      <div className="flex shrink-0 items-center gap-1.5 lg:flex-wrap">
         {fontSelect}
         {sizeControl}
         {styleButtons}

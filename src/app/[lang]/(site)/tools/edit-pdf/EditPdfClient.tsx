@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { flushSync } from "react-dom";
 import {
   ArrowDown,
   ArrowUp,
@@ -9,6 +10,8 @@ import {
   ChevronRight,
   Circle,
   Copy,
+  SlidersHorizontal,
+  X,
   Crop,
   Eraser,
   FileText,
@@ -82,6 +85,21 @@ const ZOOMS = [0.5, 0.75, 1, 1.25, 1.5, 2, 3].map((z) => z * (96 / 72));
 const newId = () => Math.random().toString(36).slice(2, 10);
 const PANELS_KEY = "sky-tools:pdf-studio:panels";
 
+const DESKTOP_QUERY = "(min-width: 1024px)";
+
+/** True on desktop-width screens, which get side panels; smaller screens get a bottom sheet. */
+function useIsDesktop(): boolean {
+  return useSyncExternalStore(
+    (onChange) => {
+      const media = window.matchMedia(DESKTOP_QUERY);
+      media.addEventListener("change", onChange);
+      return () => media.removeEventListener("change", onChange);
+    },
+    () => window.matchMedia(DESKTOP_QUERY).matches,
+    () => true,
+  );
+}
+
 function readPanels(): { left: boolean; right: boolean } {
   try {
     const saved = JSON.parse(window.localStorage.getItem(PANELS_KEY) ?? "null");
@@ -150,6 +168,9 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
   const [thumbs, setThumbs] = useState<Record<string, string>>({});
   const [previews, setPreviews] = useState<Record<string, string>>({});
   const [organizerOpen, setOrganizerOpen] = useState(false);
+  const isDesktop = useIsDesktop();
+  // Phones and tablets: the tools panel is a bottom sheet, closed until asked for.
+  const [sheetOpen, setSheetOpen] = useState(false);
   // The studio only shows panels after a file is opened, so reading storage here can't cause a hydration mismatch.
   const [panels, setPanels] = useState(() => (typeof window === "undefined" ? { left: false, right: true } : readPanels()));
   const railListRef = useRef<HTMLOListElement>(null);
@@ -351,6 +372,69 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
     }
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
+  }, [files.length]);
+
+  // Two fingers pinch to zoom and drag to pan (one finger scrolls, or draws with a drawing tool).
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const area: HTMLDivElement = el;
+    let pinch: { dist: number; scale: number; x: number; y: number } | null = null;
+    let frame = 0;
+    const center = (e: TouchEvent) => {
+      const r = el.getBoundingClientRect();
+      return {
+        x: (e.touches[0].clientX + e.touches[1].clientX) / 2 - r.left,
+        y: (e.touches[0].clientY + e.touches[1].clientY) / 2 - r.top,
+      };
+    };
+    const distance = (e: TouchEvent) =>
+      Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+    // Pages at "fit" each have their own scale; zooming starts from the one on screen.
+    const currentScale = () => {
+      const node = el.querySelector<HTMLElement>("[data-canvas-page][data-current]") ?? el.querySelector<HTMLElement>("[data-canvas-page]");
+      return Number(node?.dataset.scale) || ZOOMS[2];
+    };
+    function onStart(e: TouchEvent) {
+      if (e.touches.length !== 2) return;
+      pinch = { dist: distance(e), scale: currentScale(), ...center(e) };
+    }
+    function onMove(e: TouchEvent) {
+      if (!pinch || e.touches.length !== 2) return;
+      e.preventDefault();
+      const dist = distance(e);
+      const c = center(e);
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        if (!pinch) return;
+        const before = currentScale();
+        const next = Math.min(ZOOMS[ZOOMS.length - 1], Math.max(ZOOMS[0], (pinch.scale * dist) / pinch.dist));
+        const ratio = next / before;
+        const left = area.scrollLeft;
+        const top = area.scrollTop;
+        if (Math.abs(ratio - 1) > 0.01) flushSync(() => setZoom(next));
+        const applied = currentScale() / before;
+        // Keep the point between the fingers still, then follow the fingers.
+        area.scrollLeft = (left + pinch.x) * applied - c.x;
+        area.scrollTop = (top + pinch.y) * applied - c.y;
+        pinch.x = c.x;
+        pinch.y = c.y;
+      });
+    }
+    function onEnd(e: TouchEvent) {
+      if (e.touches.length < 2) pinch = null;
+    }
+    el.addEventListener("touchstart", onStart, { passive: true });
+    el.addEventListener("touchmove", onMove, { passive: false });
+    el.addEventListener("touchend", onEnd);
+    el.addEventListener("touchcancel", onEnd);
+    return () => {
+      cancelAnimationFrame(frame);
+      el.removeEventListener("touchstart", onStart);
+      el.removeEventListener("touchmove", onMove);
+      el.removeEventListener("touchend", onEnd);
+      el.removeEventListener("touchcancel", onEnd);
+    };
   }, [files.length]);
 
   const scrollToPage = useCallback((id: number) => {
@@ -803,7 +887,7 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
   // ----- render -----
   if (files.length === 0) {
     return (
-      <div className="flex flex-1 items-center justify-center p-6">
+      <div className="flex flex-1 items-center justify-center overflow-y-auto p-6">
         <div className="w-full max-w-xl">
           <FileDropZone title={t.dropTitle} hint={t.dropHint} accept="application/pdf,.pdf" onFiles={addFiles} />
           {error && <p className="mt-4 rounded-lg bg-error-soft px-4 py-3 text-sm font-semibold text-error">{error}</p>}
@@ -813,7 +897,9 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
   }
 
   const iconButton =
-    "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-sm font-semibold text-muted hover:bg-background hover:text-foreground disabled:opacity-30 disabled:hover:bg-transparent";
+    "inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-2 text-sm font-semibold text-muted hover:bg-background hover:text-foreground disabled:opacity-30 disabled:hover:bg-transparent";
+  // Side panels and zoom buttons: desktop only (touch screens use the sheet and pinch).
+  const desktopButton = iconButton.replace("inline-flex ", "hidden lg:inline-flex ");
   const panelButton =
     "flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-semibold hover:border-accent hover:text-accent-hover disabled:opacity-40 disabled:hover:border-border disabled:hover:text-inherit";
   const field = "rounded-lg border border-border bg-background-raised px-2 py-1.5 text-sm focus:border-accent focus:outline-none";
@@ -882,20 +968,20 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
           : t.object.types[a.type];
 
   return (
-    <div className="flex flex-1 flex-col bg-background-raised lg:min-h-0">
+    <div className="flex min-h-0 flex-1 flex-col bg-background-raised">
       {/* Main toolbar */}
-      <div className="flex flex-wrap items-center gap-1 border-b border-border px-2 py-1.5 sm:px-3">
+      <div className="flex items-center gap-1 overflow-x-auto border-b border-border px-2 py-1.5 [scrollbar-width:none] sm:px-3 lg:flex-wrap lg:overflow-visible">
         <button
           type="button"
           onClick={() => togglePanel("left")}
           aria-pressed={panels.left}
           title={`${panels.left ? t.panels.hideLeft : t.panels.showLeft} ([)`}
           aria-label={panels.left ? t.panels.hideLeft : t.panels.showLeft}
-          className={iconButton}
+          className={desktopButton}
         >
           {panels.left ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
         </button>
-        <span className="mr-1 flex min-w-0 items-center gap-2 px-1 text-sm font-semibold">
+        <span className="mr-1 hidden min-w-0 items-center gap-2 px-1 text-sm font-semibold sm:flex">
           <FileText className="h-4 w-4 shrink-0 text-accent-hover" />
           <span className="max-w-[10rem] truncate">{files[0].name}</span>
           <span className="shrink-0 font-normal text-muted">· {fill(t.pageCount, { count: pages.length })}</span>
@@ -904,7 +990,7 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
           type="button"
           onClick={() => openOrganizer()}
           title={`${t.organizer.title} (P)`}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-sm font-semibold hover:border-accent hover:text-accent-hover"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-sm font-semibold hover:border-accent hover:text-accent-hover"
         >
           <Files className="h-4 w-4" />
           {t.organizer.open}
@@ -932,18 +1018,18 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
           <Redo2 className="h-4 w-4" />
         </button>
         <span className="mx-1 h-6 w-px bg-border" />
-        <button type="button" onClick={() => setZoom((z) => ZOOMS.filter((v) => v < (z === "fit" ? ZOOMS[2] : z)).pop() ?? ZOOMS[0])} aria-label={t.zoomOut} title={t.zoomOut} className={iconButton}>
+        <button type="button" onClick={() => setZoom((z) => ZOOMS.filter((v) => v < (z === "fit" ? ZOOMS[2] : z)).pop() ?? ZOOMS[0])} aria-label={t.zoomOut} title={t.zoomOut} className={desktopButton}>
           <ZoomOut className="h-4 w-4" />
         </button>
         <button type="button" onClick={() => setZoom("fit")} title={t.zoomFit} className={`${iconButton} ${zoom === "fit" ? "text-accent-hover" : ""}`}>
           <Maximize className="h-4 w-4" />
           <span className="hidden sm:inline">{zoom === "fit" ? t.zoomFit : `${Math.round((zoom / (96 / 72)) * 100)}%`}</span>
         </button>
-        <button type="button" onClick={() => setZoom((z) => ZOOMS.find((v) => v > (z === "fit" ? ZOOMS[2] - 0.01 : z)) ?? ZOOMS[ZOOMS.length - 1])} aria-label={t.zoomIn} title={t.zoomIn} className={iconButton}>
+        <button type="button" onClick={() => setZoom((z) => ZOOMS.find((v) => v > (z === "fit" ? ZOOMS[2] - 0.01 : z)) ?? ZOOMS[ZOOMS.length - 1])} aria-label={t.zoomIn} title={t.zoomIn} className={desktopButton}>
           <ZoomIn className="h-4 w-4" />
         </button>
-        <div className="ml-auto flex items-center gap-1">
-          <button type="button" onClick={startOver} className={iconButton}>
+        <div className="sticky right-0 ml-auto flex shrink-0 items-center gap-1 bg-background-raised pl-1 lg:static lg:pl-0">
+          <button type="button" onClick={startOver} className={iconButton.replace("inline-flex ", "hidden sm:inline-flex ")}>
             {t.startOver}
           </button>
           <button
@@ -961,16 +1047,25 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
             aria-pressed={panels.right}
             title={`${panels.right ? t.panels.hideRight : t.panels.showRight} (])`}
             aria-label={panels.right ? t.panels.hideRight : t.panels.showRight}
-            className={iconButton}
+            className={desktopButton}
           >
             {panels.right ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
+          </button>
+          <button
+            type="button"
+            onClick={() => setSheetOpen((o) => !o)}
+            aria-pressed={sheetOpen}
+            aria-label={sheetOpen ? t.panels.hideRight : t.panels.showRight}
+            className={`${iconButton} lg:hidden`}
+          >
+            <SlidersHorizontal className="h-5 w-5" />
           </button>
         </div>
       </div>
 
       {/* Tool palette + style bar */}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-border px-2 py-1.5 sm:px-3">
-        <div className="flex flex-wrap items-center gap-0.5" role="toolbar">
+      <div className="flex flex-col gap-1 border-b border-border px-2 py-1.5 sm:px-3 lg:flex-row lg:flex-wrap lg:items-center lg:gap-x-3">
+        <div className="flex items-center gap-0.5 overflow-x-auto [scrollbar-width:none] lg:flex-wrap lg:overflow-visible" role="toolbar">
           {TOOLS.map(({ tool: value, icon: Icon, key }) => (
             <button
               key={value}
@@ -979,17 +1074,18 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
               aria-pressed={tool === value}
               title={`${t.tools[value]}${key ? ` (${key.toUpperCase()})` : ""}`}
               aria-label={t.tools[value]}
-              className={`rounded-lg p-2 ${tool === value ? "bg-accent text-white shadow-sm" : "text-muted hover:bg-background hover:text-foreground"}`}
+              className={`shrink-0 rounded-lg p-2.5 lg:p-2 ${tool === value ? "bg-accent text-white shadow-sm" : "text-muted hover:bg-background hover:text-foreground"}`}
             >
-              <Icon className="h-4 w-4" />
+              <Icon className="h-5 w-5 lg:h-4 lg:w-4" />
             </button>
           ))}
         </div>
 
-        {(showColor || showWidth || showTextProps || showFill) && <span className="h-6 w-px bg-border" />}
+        {(showColor || showWidth || showTextProps || showFill) && <span className="hidden h-6 w-px bg-border lg:block" />}
+        <div className="flex items-center gap-x-3 overflow-x-auto [scrollbar-width:none] empty:hidden lg:contents">
 
         {showColor && (
-          <div className="flex items-center gap-1" aria-label={t.style.color}>
+          <div className="flex shrink-0 items-center gap-1" aria-label={t.style.color}>
             {COLORS.filter((c) => c !== "#ffffff" || showFill).map((c) => (
               <button
                 key={c}
@@ -1004,7 +1100,7 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
           </div>
         )}
         {showWidth && (
-          <label className="flex items-center gap-1 text-xs font-semibold text-muted">
+          <label className="flex shrink-0 items-center gap-1 text-xs font-semibold text-muted">
             {t.style.width}
             <select
               value={selectedAnn && "strokeWidth" in selectedAnn && tool === "select" ? selectedAnn.strokeWidth : style.strokeWidth}
@@ -1022,7 +1118,7 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
         {showTextProps && (
           <>
             <TextProps value={textStyle} onChange={applyTextStyle} t={t.textProps} pickerT={t.fontPicker} compact />
-            <div className="flex items-center gap-1" aria-label={t.style.color}>
+            <div className="flex shrink-0 items-center gap-1" aria-label={t.style.color}>
               {COLORS.filter((col) => col !== "#ffffff").map((col) => (
                 <button
                   key={col}
@@ -1038,7 +1134,7 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
           </>
         )}
         {showFill && (
-          <div className="flex items-center gap-1 text-xs font-semibold text-muted">
+          <div className="flex shrink-0 items-center gap-1 text-xs font-semibold text-muted">
             <PaintBucket className="h-4 w-4" />
             <button type="button" onClick={() => applyStyle({ fill: null })} className={`rounded px-1.5 py-0.5 ${(tool === "select" && selectedAnn && "fill" in selectedAnn ? selectedAnn.fill : style.fill) === null ? "bg-accent-soft text-accent-hover" : "hover:bg-background"}`}>
               {t.style.noFill}
@@ -1048,18 +1144,19 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
             ))}
           </div>
         )}
+        </div>
       </div>
 
       {error && <p className="border-b border-border bg-error-soft px-4 py-2 text-sm font-semibold text-error">{error}</p>}
 
       <div
-        className="grid grid-cols-1 transition-[grid-template-columns] duration-200 ease-out lg:min-h-0 lg:flex-1 lg:[grid-template-columns:var(--studio-cols)]"
+        className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)] transition-[grid-template-columns] duration-200 ease-out lg:[grid-template-columns:var(--studio-cols)]"
         style={{ "--studio-cols": `${panels.left ? "156px" : "0px"} minmax(0,1fr) ${panels.right ? "280px" : "0px"}` } as React.CSSProperties}
       >
         {/* Left panel: page thumbnails */}
         <aside
           inert={!panels.left}
-          className={`order-2 flex-col overflow-hidden border-border lg:order-none lg:min-h-0 ${panels.left ? "flex border-t lg:border-r lg:border-t-0" : "hidden lg:flex"}`}
+          className={`hidden flex-col overflow-hidden border-border lg:flex lg:min-h-0 ${panels.left ? "lg:border-r" : ""}`}
         >
           <div className="flex min-w-[156px] items-center justify-between px-3 pb-1 pt-2">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted">{t.pages}</p>
@@ -1093,7 +1190,7 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
         </aside>
 
         {/* Canvas: all pages in one scrolling column */}
-        <section className="relative order-1 h-[70vh] min-h-[380px] bg-background lg:order-none lg:h-auto">
+        <section className="relative min-h-0 bg-background">
           <div ref={scrollRef} className="absolute inset-0 overflow-auto overscroll-contain">
             {pages.length === 0 ? (
               <p className="flex h-full items-center justify-center px-6 text-center text-sm text-muted">{t.empty}</p>
@@ -1105,7 +1202,13 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
                   const scale = zoom === "fit" ? Math.min(2.2, Math.max(0.2, (areaWidth - 64) / finalWidth)) : zoom;
                   const pageForms = forms.get(page.file);
                   return (
-                    <div key={page.id} data-canvas-page={page.id} className="flex scroll-mt-10 flex-col items-center gap-2">
+                    <div
+                      key={page.id}
+                      data-canvas-page={page.id}
+                      data-scale={scale}
+                      data-current={page.id === current?.id ? "" : undefined}
+                      className="flex scroll-mt-10 flex-col items-center gap-2"
+                    >
                       <div className={`rounded-sm ${page.id === current?.id ? "ring-2 ring-accent/60 ring-offset-4 ring-offset-background" : ""}`}>
                         <PageEditor
                           page={page}
@@ -1173,12 +1276,33 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
               <p className="pointer-events-none absolute left-1/2 top-3 max-w-[90%] -translate-x-1/2 truncate rounded-full bg-foreground/80 px-3 py-1 text-xs font-medium text-white">
                 {t.hints[tool]}
               </p>
+              {!isDesktop && selectedAnn && !editingId && (
+                <div className="absolute bottom-14 left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-full border border-border bg-background-raised p-1 text-sm font-semibold shadow-lg">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPanel("object");
+                      setSheetOpen(true);
+                    }}
+                    className="flex items-center gap-1.5 rounded-full px-3 py-2 hover:bg-background"
+                  >
+                    <SlidersHorizontal className="h-4 w-4" />
+                    {t.tabs.object}
+                  </button>
+                  <button type="button" onClick={duplicateAnn} aria-label={t.object.duplicate} className="rounded-full p-2.5 hover:bg-background">
+                    <Copy className="h-4 w-4" />
+                  </button>
+                  <button type="button" onClick={deleteAnn} aria-label={t.object.delete} className="rounded-full p-2.5 text-error hover:bg-error-soft">
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
               <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-full bg-foreground/80 px-1.5 py-1 text-xs font-semibold text-white">
-                <button type="button" onClick={() => goTo(currentIndex - 1)} disabled={currentIndex === 0} aria-label={t.previous} className="rounded-full p-1 hover:bg-white/15 disabled:opacity-30">
+                <button type="button" onClick={() => goTo(currentIndex - 1)} disabled={currentIndex === 0} aria-label={t.previous} className="rounded-full p-1.5 hover:bg-white/15 disabled:opacity-30 lg:p-1">
                   <ChevronLeft className="h-4 w-4" />
                 </button>
                 <span className="px-1">{fill(t.pageOf, { page: currentIndex + 1, count: pages.length })}</span>
-                <button type="button" onClick={() => goTo(currentIndex + 1)} disabled={currentIndex >= pages.length - 1} aria-label={t.next} className="rounded-full p-1 hover:bg-white/15 disabled:opacity-30">
+                <button type="button" onClick={() => goTo(currentIndex + 1)} disabled={currentIndex >= pages.length - 1} aria-label={t.next} className="rounded-full p-1.5 hover:bg-white/15 disabled:opacity-30 lg:p-1">
                   <ChevronRight className="h-4 w-4" />
                 </button>
               </div>
@@ -1186,12 +1310,30 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
           )}
         </section>
 
-        {/* Inspector */}
+        {/* Inspector: side panel on desktop, bottom sheet on phones and tablets */}
+        {!isDesktop && sheetOpen && (
+          <div className="fixed inset-0 z-30 bg-black/30" onClick={() => setSheetOpen(false)} aria-hidden="true" />
+        )}
         <aside
-          inert={!panels.right}
-          className={`order-3 flex-col overflow-hidden border-border lg:order-none lg:min-h-0 ${panels.right ? "flex border-t lg:border-l lg:border-t-0" : "hidden lg:flex"}`}
+          inert={isDesktop ? !panels.right : !sheetOpen}
+          aria-label={t.panels.showRight}
+          className={
+            isDesktop
+              ? `flex min-h-0 flex-col overflow-hidden border-border ${panels.right ? "border-l" : ""}`
+              : sheetOpen
+                ? "fixed inset-x-0 bottom-0 z-40 flex max-h-[70dvh] flex-col overflow-hidden rounded-t-2xl border-t border-border bg-background-raised shadow-2xl"
+                : "hidden"
+          }
         >
-          <div className="flex min-w-[280px] border-b border-border" role="tablist">
+          {!isDesktop && (
+            <div className="relative flex h-7 shrink-0 items-center justify-center">
+              <span className="h-1.5 w-10 rounded-full bg-border" aria-hidden="true" />
+              <button type="button" onClick={() => setSheetOpen(false)} aria-label={t.panels.hideRight} className="absolute right-2 top-1 rounded-lg p-2 text-muted hover:bg-background">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+          )}
+          <div className="flex shrink-0 border-b border-border lg:min-w-[280px]" role="tablist">
             {(["page", "object", "document"] as const).map((value) => (
               <button
                 key={value}
@@ -1206,7 +1348,7 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
             ))}
           </div>
 
-          <div className="flex min-w-[280px] flex-col gap-5 p-4 lg:overflow-y-auto">
+          <div className="flex min-h-0 flex-col gap-5 overflow-y-auto p-4 pb-8 lg:min-w-[280px] lg:pb-4">
             {panel === "page" && (
               <>
                 <div>
@@ -1245,6 +1387,9 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
                   </button>
                 </div>
                 <div className="flex flex-wrap items-center gap-3 text-sm">
+                  <button type="button" onClick={startOver} className="font-semibold text-muted hover:text-foreground sm:hidden">
+                    {t.startOver}
+                  </button>
                   <button type="button" onClick={() => rotatePages(90, true)} className="font-semibold text-accent-hover hover:underline">
                     {t.rotateAll}
                   </button>

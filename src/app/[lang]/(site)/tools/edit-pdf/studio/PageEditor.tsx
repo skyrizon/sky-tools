@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useSyncExternalStore } from "react";
 import { pageNumberLabel } from "@/lib/pdf-studio/export";
 import type { TextRun } from "@/lib/pdf-convert";
 import {
@@ -41,6 +41,20 @@ type Drag =
 type Pt = { x: number; y: number };
 
 const newId = () => Math.random().toString(36).slice(2, 10);
+
+const COARSE_QUERY = "(pointer: coarse)";
+/** True on touch screens, where handles need to be bigger. */
+function useCoarsePointer(): boolean {
+  return useSyncExternalStore(
+    (onChange) => {
+      const media = window.matchMedia(COARSE_QUERY);
+      media.addEventListener("change", onChange);
+      return () => media.removeEventListener("change", onChange);
+    },
+    () => window.matchMedia(COARSE_QUERY).matches,
+    () => false,
+  );
+}
 const HIGHLIGHT = "#facc15";
 
 /** Moves an annotation by (dx, dy) points. */
@@ -116,6 +130,9 @@ export default function PageEditor({
 }) {
   const frameRef = useRef<HTMLDivElement>(null);
   const drag = useRef<Drag | null>(null);
+  // Fingers currently on the page. A second finger means pinch or pan, not drawing.
+  const pointers = useRef(new Set<number>());
+  const coarse = useCoarsePointer();
 
   const rotation = ((page.rotation % 360) + 360) % 360;
   const quarter = rotation % 180 === 90;
@@ -147,8 +164,30 @@ export default function PageEditor({
     onSelect(ann.id);
   }
 
+  /** Undoes whatever the first finger started, because a second finger joined (pinch zoom). */
+  function cancelDrag() {
+    const d = drag.current;
+    drag.current = null;
+    if (!d) return;
+    if (d.mode === "create") {
+      updatePage((p) => ({ ...p, annotations: p.annotations.filter((a) => a.id !== d.id) }));
+      onSelect(null);
+    } else if (d.mode === "move" || d.mode === "resize") {
+      setAnn(d.original.id, () => d.original);
+    } else if (d.mode === "crop") {
+      updatePage((p) => ({ ...p, crop: null }));
+    }
+  }
+
   function onPointerDown(event: React.PointerEvent<SVGSVGElement>) {
     if (event.button !== 0) return;
+    if (event.pointerType === "touch") {
+      pointers.current.add(event.pointerId);
+      if (pointers.current.size > 1) {
+        cancelDrag();
+        return;
+      }
+    }
     const pt = toPage(event);
     const target = event.target as Element;
     const handle = target.closest("[data-handle]")?.getAttribute("data-handle");
@@ -298,7 +337,8 @@ export default function PageEditor({
     }
   }
 
-  function onPointerUp() {
+  function onPointerUp(event: React.PointerEvent<SVGSVGElement>) {
+    pointers.current.delete(event.pointerId);
     const d = drag.current;
     drag.current = null;
     if (!d) return;
@@ -320,7 +360,7 @@ export default function PageEditor({
   const editing = page.annotations.find((a) => a.id === editingId && a.type === "text");
   const selectedBounds = selected ? annotationBounds(selected) : null;
   const pad = 4 / scale;
-  const handleSize = 8 / scale;
+  const handleSize = (coarse ? 16 : 8) / scale;
   const cursor =
     tool === "select" ? "default" : tool === "text" || tool === "editText" ? "text" : (tool === "image" || tool === "signature") && !pendingImage ? "not-allowed" : "crosshair";
 
@@ -359,8 +399,9 @@ export default function PageEditor({
               viewBox={`0 0 ${pw} ${ph}`}
               width={w}
               height={h}
-              className="absolute inset-0"
-              style={{ cursor, touchAction: tool === "select" ? "auto" : "none" }}
+              // With the Select tool one finger scrolls the page, except on an object, where it drags the object.
+              className="absolute inset-0 [&_[data-ann-id]]:[touch-action:none] [&_[data-handle]]:[touch-action:none]"
+              style={{ cursor, touchAction: tool === "select" ? "pan-x pan-y" : "none" }}
               onPointerDown={onPointerDown}
               // Keep focus where it is: the browser would otherwise blur a just-opened text box.
               onMouseDown={(e) => e.preventDefault()}

@@ -39,7 +39,7 @@ export default async function PdfStudioPage({ params }: PageProps<"/[lang]/studi
   return (
     <div
       data-studio-root
-      className={`${signFont1.variable} ${signFont2.variable} ${sarabun.variable} ${serifThai.variable} ${kanit.variable} flex min-h-dvh flex-col bg-background lg:h-dvh`}
+      className={`${signFont1.variable} ${signFont2.variable} ${sarabun.variable} ${serifThai.variable} ${kanit.variable} flex h-dvh flex-col overflow-hidden bg-background`}
     >
       <header className="flex items-center gap-3 border-b border-border bg-background-raised px-4 py-2">
         <Wordmark href={localePath(lang, "/")} height={32} />
