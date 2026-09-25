@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowDown,
   ArrowUp,
-  Bold,
   BringToFront,
   ChevronLeft,
   ChevronRight,
@@ -67,6 +66,9 @@ import SupportNote from "@/components/SupportNote";
 import PageEditor, { type PendingImage, type StyleState } from "./studio/PageEditor";
 import PageOrganizer from "./studio/PageOrganizer";
 import PageThumb from "./studio/PageThumb";
+import TextProps, { type TextStyle } from "./studio/TextProps";
+import { DEFAULT_FONT, matchFont } from "@/lib/pdf-studio/fonts";
+import { DEFAULT_LINE_HEIGHT } from "@/lib/pdf-studio/types";
 import SignatureDialog, { type SignatureImage } from "./studio/SignatureDialog";
 
 type T = Dictionary["editPdf"]["ui"];
@@ -76,7 +78,6 @@ const sourceKey = (page: StudioPage) => `${page.file.name}|${page.file.lastModif
 const HISTORY_LIMIT = 60;
 const COLORS = ["#10151c", "#dc2626", "#ea580c", "#16a34a", "#1786f9", "#7c3aed", "#db2777", "#ffffff"];
 const WIDTHS = [1, 2, 3, 5, 8];
-const FONT_SIZES = [8, 10, 12, 14, 16, 18, 24, 32, 48, 72];
 const ZOOMS = [0.5, 0.75, 1, 1.25, 1.5, 2, 3].map((z) => z * (96 / 72));
 const newId = () => Math.random().toString(36).slice(2, 10);
 const PANELS_KEY = "sky-tools:pdf-studio:panels";
@@ -127,7 +128,18 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [currentId, setCurrentId] = useState<number | null>(null);
   const [tool, setTool] = useState<Tool>("select");
-  const [style, setStyle] = useState<StyleState>({ color: "#10151c", fill: null, strokeWidth: 2, fontSize: 16, bold: false });
+  const [style, setStyle] = useState<StyleState>({
+    color: "#10151c",
+    fill: null,
+    strokeWidth: 2,
+    fontSize: 16,
+    bold: false,
+    font: DEFAULT_FONT,
+    italic: false,
+    underline: false,
+    align: "left",
+    lineHeight: DEFAULT_LINE_HEIGHT,
+  });
   const [selectedAnnId, setSelectedAnnId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [zoom, setZoom] = useState<number | "fit">("fit");
@@ -523,6 +535,11 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
       size: Math.round(run.size * 10) / 10,
       color: colors.foreground,
       bold: run.bold,
+      font: matchFont(run.fontName),
+      italic: /italic|oblique/i.test(run.fontName),
+      underline: false,
+      align: "left",
+      lineHeight: DEFAULT_LINE_HEIGHT,
       replaces: run.id,
     };
     beginChange();
@@ -571,25 +588,38 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
   }
 
   /** Style controls change the selected object, or the style for new ones. */
-  function applyStyle(patch: Partial<StyleState>) {
-    setStyle((s) => ({ ...s, ...patch }));
-    if (!selectedAnn || tool !== "select") return;
-    updateSelectedAnn((a) => {
-      if (a.type === "text")
-        return { ...a, color: patch.color ?? a.color, size: patch.fontSize ?? a.size, bold: patch.bold ?? a.bold };
-      if (a.type === "line") return { ...a, stroke: patch.color ?? a.stroke, strokeWidth: patch.strokeWidth ?? a.strokeWidth };
-      if (a.type === "ink") return { ...a, stroke: patch.color ?? a.stroke, strokeWidth: patch.strokeWidth ?? a.strokeWidth };
-      if ((a.type === "rect" || a.type === "ellipse") && !a.role)
-        return {
-          ...a,
-          stroke: patch.color ?? a.stroke,
-          strokeWidth: patch.strokeWidth ?? a.strokeWidth,
-          fill: patch.fill !== undefined ? patch.fill : a.fill,
-        };
-      if (a.type === "rect" && patch.color && a.role === "highlight") return { ...a, fill: patch.color };
-      return a;
-    });
-  }
+  const applyStyle = useCallback(
+    (patch: Partial<StyleState>) => {
+      setStyle((s) => ({ ...s, ...patch }));
+      if (!selectedAnn) return;
+      updateSelectedAnn((a) => {
+        if (a.type === "text")
+          return {
+            ...a,
+            color: patch.color ?? a.color,
+            size: patch.fontSize ?? a.size,
+            bold: patch.bold ?? a.bold,
+            font: patch.font ?? a.font,
+            italic: patch.italic ?? a.italic,
+            underline: patch.underline ?? a.underline,
+            align: patch.align ?? a.align,
+            lineHeight: patch.lineHeight ?? a.lineHeight,
+          };
+        if (a.type === "line") return { ...a, stroke: patch.color ?? a.stroke, strokeWidth: patch.strokeWidth ?? a.strokeWidth };
+        if (a.type === "ink") return { ...a, stroke: patch.color ?? a.stroke, strokeWidth: patch.strokeWidth ?? a.strokeWidth };
+        if ((a.type === "rect" || a.type === "ellipse") && !a.role)
+          return {
+            ...a,
+            stroke: patch.color ?? a.stroke,
+            strokeWidth: patch.strokeWidth ?? a.strokeWidth,
+            fill: patch.fill !== undefined ? patch.fill : a.fill,
+          };
+        if (a.type === "rect" && patch.color && a.role === "highlight") return { ...a, fill: patch.color };
+        return a;
+      });
+    },
+    [selectedAnn, updateSelectedAnn],
+  );
 
   function chooseTool(next: Tool) {
     setEditingId(null);
@@ -732,7 +762,10 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
       const mod = event.ctrlKey || event.metaKey;
       const key = event.key.toLowerCase();
       const nudge = event.shiftKey ? 10 : 1;
-      if (mod && key === "z" && !event.shiftKey) undo();
+      if (mod && selectedAnn?.type === "text" && (key === "b" || key === "i" || key === "u")) {
+        const prop = key === "b" ? "bold" : key === "i" ? "italic" : "underline";
+        applyStyle({ [prop]: !selectedAnn[prop] });
+      } else if (mod && key === "z" && !event.shiftKey) undo();
       else if (mod && (key === "y" || (key === "z" && event.shiftKey))) redo();
       else if (mod && key === "s") void save();
       else if (mod && key === "a") setSelected(new Set(pages.map((p) => p.id)));
@@ -765,7 +798,7 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [pages, currentIndex, selectedAnnId, signatureOpen, organizerOpen, togglePanel, undo, redo, save, goTo, rotatePages, removePages, deleteAnn, updateSelectedAnn]);
+  }, [pages, currentIndex, selectedAnnId, selectedAnn, applyStyle, signatureOpen, organizerOpen, togglePanel, undo, redo, save, goTo, rotatePages, removePages, deleteAnn, updateSelectedAnn]);
 
   // ----- render -----
   if (files.length === 0) {
@@ -788,17 +821,17 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
 
   // What the style bar edits: the selected object, or the active drawing tool.
   const styleTarget: string | null =
-    tool === "select" && selectedAnn
+    selectedAnn
       ? selectedAnn.type === "rect" || selectedAnn.type === "ellipse"
         ? selectedAnn.role ?? selectedAnn.type
         : selectedAnn.type
       : tool;
-  const showColor = !["select", "editText", "crop", "image", "signature", "whiteout", "highlighter"].includes(styleTarget ?? "");
+  const showColor = !["select", "editText", "text", "crop", "image", "signature", "whiteout", "highlighter"].includes(styleTarget ?? "");
   const showWidth = ["pen", "highlighter", "rect", "ellipse", "line", "arrow", "ink"].includes(styleTarget ?? "");
   const showFont = styleTarget === "text";
   const showFill = styleTarget === "rect" || styleTarget === "ellipse";
   const activeColor =
-    tool === "select" && selectedAnn
+    selectedAnn
       ? selectedAnn.type === "text"
         ? selectedAnn.color
         : selectedAnn.type === "line" || selectedAnn.type === "ink"
@@ -809,6 +842,35 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
               : selectedAnn.stroke ?? style.color
             : style.color
       : style.color;
+
+  // Text formatting shown for the selected text, or the defaults for new text.
+  const textTarget = selectedAnn?.type === "text" ? selectedAnn : null;
+  const textStyle: TextStyle = textTarget
+    ? {
+        font: textTarget.font ?? "plex",
+        size: textTarget.size,
+        bold: textTarget.bold,
+        italic: textTarget.italic ?? false,
+        underline: textTarget.underline ?? false,
+        align: textTarget.align ?? "left",
+        lineHeight: textTarget.lineHeight ?? DEFAULT_LINE_HEIGHT,
+        color: textTarget.color,
+      }
+    : {
+        font: style.font,
+        size: style.fontSize,
+        bold: style.bold,
+        italic: style.italic,
+        underline: style.underline,
+        align: style.align,
+        lineHeight: style.lineHeight,
+        color: style.color,
+      };
+  const applyTextStyle = (patch: Partial<TextStyle>) => {
+    const { size, ...rest } = patch;
+    applyStyle({ ...rest, ...(size !== undefined ? { fontSize: size } : {}) });
+  };
+  const showTextProps = showFont || (tool === "text" && !selectedAnn);
 
   const annTypeLabel = (a: Annotation) =>
     a.type === "image"
@@ -924,7 +986,7 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
           ))}
         </div>
 
-        {(showColor || showWidth || showFont || showFill) && <span className="h-6 w-px bg-border" />}
+        {(showColor || showWidth || showTextProps || showFill) && <span className="h-6 w-px bg-border" />}
 
         {showColor && (
           <div className="flex items-center gap-1" aria-label={t.style.color}>
@@ -957,33 +1019,22 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
             </select>
           </label>
         )}
-        {showFont && (
+        {showTextProps && (
           <>
-            <label className="flex items-center gap-1 text-xs font-semibold text-muted">
-              {t.style.fontSize}
-              <select
-                value={selectedAnn?.type === "text" && tool === "select" ? Math.round(selectedAnn.size) : style.fontSize}
-                onChange={(e) => applyStyle({ fontSize: Number(e.target.value) })}
-                className={field}
-              >
-                {[...new Set([...FONT_SIZES, selectedAnn?.type === "text" ? Math.round(selectedAnn.size) : style.fontSize])]
-                  .sort((a, b) => a - b)
-                  .map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-              </select>
-            </label>
-            <button
-              type="button"
-              aria-label={t.style.bold}
-              aria-pressed={selectedAnn?.type === "text" && tool === "select" ? selectedAnn.bold : style.bold}
-              onClick={() => applyStyle({ bold: !(selectedAnn?.type === "text" && tool === "select" ? selectedAnn.bold : style.bold) })}
-              className={`rounded-lg p-1.5 ${(selectedAnn?.type === "text" && tool === "select" ? selectedAnn.bold : style.bold) ? "bg-accent-soft text-accent-hover" : "text-muted hover:bg-background"}`}
-            >
-              <Bold className="h-4 w-4" />
-            </button>
+            <TextProps value={textStyle} onChange={applyTextStyle} t={t.textProps} compact />
+            <div className="flex items-center gap-1" aria-label={t.style.color}>
+              {COLORS.filter((col) => col !== "#ffffff").map((col) => (
+                <button
+                  key={col}
+                  type="button"
+                  aria-label={col}
+                  onClick={() => applyTextStyle({ color: col })}
+                  className={`h-5 w-5 rounded-full border ${textStyle.color === col ? "ring-2 ring-accent ring-offset-1" : "border-border"}`}
+                  style={{ background: col }}
+                />
+              ))}
+              <input type="color" value={textStyle.color} onChange={(e) => applyTextStyle({ color: e.target.value })} aria-label={t.style.color} className="h-6 w-7 cursor-pointer rounded border border-border bg-transparent" />
+            </div>
           </>
         )}
         {showFill && (
@@ -1239,6 +1290,9 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
                     <p className="text-xs font-semibold uppercase tracking-wide text-muted">{t.object.title}</p>
                     <p className="mt-1 font-bold">{annTypeLabel(selectedAnn)}</p>
                   </div>
+                  {selectedAnn.type === "text" && (
+                    <TextProps value={textStyle} onChange={applyTextStyle} t={t.textProps} />
+                  )}
                   {selectedAnn.type === "text" && (
                     <label className={label}>
                       {t.object.editText}

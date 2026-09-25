@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Charm, Sriracha } from "next/font/google";
+import { Charm, Kanit, Noto_Serif_Thai, Sarabun, Sriracha } from "next/font/google";
 import { CircleHelp } from "lucide-react";
 import { getDictionary } from "@/dictionaries";
 import { hasLocale, localeAlternates, localePath } from "@/lib/i18n";
@@ -11,6 +11,11 @@ import EditPdfClient from "@/app/[lang]/(site)/tools/edit-pdf/EditPdfClient";
 // Handwriting styles (Thai + Latin) for typed signatures.
 const signFont1 = Sriracha({ weight: "400", subsets: ["thai", "latin"], variable: "--font-sign-1" });
 const signFont2 = Charm({ weight: "700", subsets: ["thai", "latin"], variable: "--font-sign-2" });
+
+// Text fonts offered in the studio; the same fonts are embedded when saving.
+const sarabun = Sarabun({ weight: ["400", "700"], subsets: ["thai", "latin"], variable: "--font-sarabun" });
+const serifThai = Noto_Serif_Thai({ weight: ["400", "700"], subsets: ["thai", "latin"], variable: "--font-serif-thai" });
+const kanit = Kanit({ weight: ["400", "700"], subsets: ["thai", "latin"], variable: "--font-kanit" });
 
 export async function generateMetadata({ params }: PageProps<"/[lang]/studio/edit-pdf">): Promise<Metadata> {
   const { lang } = await params;
@@ -32,7 +37,10 @@ export default async function PdfStudioPage({ params }: PageProps<"/[lang]/studi
   const dict = getDictionary(lang);
 
   return (
-    <div className={`${signFont1.variable} ${signFont2.variable} flex min-h-dvh flex-col bg-background lg:h-dvh`}>
+    <div
+      data-studio-root
+      className={`${signFont1.variable} ${signFont2.variable} ${sarabun.variable} ${serifThai.variable} ${kanit.variable} flex min-h-dvh flex-col bg-background lg:h-dvh`}
+    >
       <header className="flex items-center gap-3 border-b border-border bg-background-raised px-4 py-2">
         <Wordmark href={localePath(lang, "/")} height={32} />
         <span className="text-sm font-bold">{dict.editPdf.studio.title}</span>

@@ -4,6 +4,7 @@ import { useRef } from "react";
 import { pageNumberLabel } from "@/lib/pdf-studio/export";
 import type { TextRun } from "@/lib/pdf-convert";
 import {
+  DEFAULT_LINE_HEIGHT,
   textLineHeight,
   type Annotation,
   type DocOptions,
@@ -13,7 +14,8 @@ import {
   type StudioPage,
   type Tool,
 } from "@/lib/pdf-studio/types";
-import AnnotationShapes, { STUDIO_FONT, annotationBounds, measureText } from "./AnnotationShapes";
+import AnnotationShapes, { annotationBounds, fontCss, measureText } from "./AnnotationShapes";
+import type { StudioFontId } from "@/lib/pdf-studio/fonts";
 
 export type StyleState = {
   color: string;
@@ -21,6 +23,11 @@ export type StyleState = {
   strokeWidth: number;
   fontSize: number;
   bold: boolean;
+  font: StudioFontId;
+  italic: boolean;
+  underline: boolean;
+  align: "left" | "center" | "right";
+  lineHeight: number;
 };
 
 export type PendingImage = { src: string; w: number; h: number; kind: "image" | "signature" };
@@ -176,7 +183,21 @@ export default function PageEditor({
       }
     } else if (tool === "text") {
       const id = newId();
-      add({ type: "text", id, x: pt.x, y: pt.y - style.fontSize * 0.65, text: newTextLabel, size: style.fontSize, color: style.color, bold: style.bold });
+      add({
+        type: "text",
+        id,
+        x: pt.x,
+        y: pt.y - style.fontSize * 0.65,
+        text: newTextLabel,
+        size: style.fontSize,
+        color: style.color,
+        bold: style.bold,
+        font: style.font,
+        italic: style.italic,
+        underline: style.underline,
+        align: style.align,
+        lineHeight: style.lineHeight,
+      });
       onEditingChange(id);
       onPlaced();
       return;
@@ -455,7 +476,7 @@ export default function PageEditor({
                 width: f.rect.w * scale,
                 height: f.rect.h * scale,
                 fontSize: Math.max(8, Math.min(f.rect.h * 0.62, 14)) * scale,
-                fontFamily: STUDIO_FONT,
+                fontFamily: fontCss("plex"),
                 pointerEvents: tool === "select" ? "auto" : "none",
               };
               const cls = "rounded-sm border border-accent/50 bg-accent-soft/60 px-1 text-foreground outline-none focus:border-accent focus:bg-white";
@@ -506,12 +527,16 @@ export default function PageEditor({
                 className="absolute resize-none overflow-hidden rounded-sm bg-white/70 p-0 outline outline-1 outline-accent"
                 style={{
                   left: editing.x * scale,
-                  top: (editing.y - editing.size * 0.08) * scale,
-                  width: (measureText(editing.text, editing.size, editing.bold) + editing.size) * scale,
+                  // Centre the first line's box on the drawn baseline.
+                  top: (editing.y - ((editing.lineHeight ?? DEFAULT_LINE_HEIGHT) - 1) * 0.5 * editing.size + editing.size * 0.02) * scale,
+                  width: (measureText(editing) + editing.size) * scale,
                   fontSize: editing.size * scale,
-                  lineHeight: `${textLineHeight(editing.size) * scale}px`,
-                  fontFamily: STUDIO_FONT,
+                  lineHeight: `${textLineHeight(editing.size, editing.lineHeight) * scale}px`,
+                  fontFamily: fontCss(editing.font),
                   fontWeight: editing.bold ? 700 : 400,
+                  fontStyle: editing.italic ? "italic" : "normal",
+                  textDecoration: editing.underline ? "underline" : "none",
+                  textAlign: editing.align ?? "left",
                   color: editing.color,
                 }}
               />
@@ -532,7 +557,7 @@ export default function PageEditor({
                   fill={watermark.color}
                   opacity={watermark.opacity}
                   transform={`rotate(${-theta} ${finalW / 2} ${finalH / 2})`}
-                  style={{ fontFamily: STUDIO_FONT }}
+                  style={{ fontFamily: fontCss("plex") }}
                 >
                   {watermark.text}
                 </text>
@@ -544,7 +569,7 @@ export default function PageEditor({
                   textAnchor={horizontal === "left" ? "start" : horizontal === "right" ? "end" : "middle"}
                   fontSize={pageNumbers.size}
                   fill="#333a40"
-                  style={{ fontFamily: STUDIO_FONT }}
+                  style={{ fontFamily: fontCss("plex") }}
                 >
                   {label}
                 </text>

@@ -58,6 +58,8 @@ export type TextRun = {
   size: number;
   /** True when the original font's name says it is bold. */
   bold: boolean;
+  /** The original font's name (e.g. "Helvetica-Bold"), for picking a similar font. */
+  fontName: string;
 };
 
 type PdfTextItem = { str: string; transform: number[]; width: number; fontName: string; hasEOL?: boolean };
@@ -76,21 +78,21 @@ export async function getTextRuns(file: File, pageIndex: number): Promise<TextRu
   // Loading the operator list makes pdf.js resolve the page's fonts, whose real
   // names (e.g. "Helvetica-Bold") tell us which text is bold.
   await page.getOperatorList();
-  const boldFont = new Map<string, boolean>();
-  const isBold = (fontName: string) => {
-    if (!boldFont.has(fontName)) {
+  const realNames = new Map<string, string>();
+  const realName = (fontName: string) => {
+    if (!realNames.has(fontName)) {
       let name = "";
       try {
         if (page.commonObjs.has(fontName)) name = (page.commonObjs.get(fontName) as { name?: string })?.name ?? "";
       } catch {
-        // Font not available; treat as regular.
+        // Font not available; treat as unknown.
       }
-      boldFont.set(fontName, /bold|black|heavy|semibold|demi/i.test(name));
+      realNames.set(fontName, name);
     }
-    return boldFont.get(fontName)!;
+    return realNames.get(fontName)!;
   };
 
-  const pieces: { text: string; x: number; baseline: number; w: number; size: number; bold: boolean }[] = [];
+  const pieces: { text: string; x: number; baseline: number; w: number; size: number; bold: boolean; fontName: string }[] = [];
   for (const raw of content.items as PdfTextItem[]) {
     if (!("str" in raw) || !raw.str) continue;
     const [a, b, c, d, e, f] = raw.transform;
@@ -104,7 +106,7 @@ export async function getTextRuns(file: File, pageIndex: number): Promise<TextRu
     if (Math.abs(tb) > 0.01 * Math.abs(ta) || ta <= 0) continue; // not left-to-right horizontal
     const size = Math.hypot(tc, td);
     if (size < 1) continue;
-    pieces.push({ text: raw.str, x: tx, baseline: ty, w: raw.width * (ta / Math.hypot(a, b) || 1), size, bold: isBold(raw.fontName) });
+    pieces.push({ text: raw.str, x: tx, baseline: ty, w: raw.width * (ta / Math.hypot(a, b) || 1), size, bold: /bold|black|heavy|semibold|demi/i.test(realName(raw.fontName)), fontName: realName(raw.fontName) });
   }
 
   // Merge pieces that sit on the same baseline and follow each other closely.
@@ -125,6 +127,7 @@ export async function getTextRuns(file: File, pageIndex: number): Promise<TextRu
       baseline: line.baseline,
       size: line.size,
       bold: line.bold,
+      fontName: line.fontName,
     });
   };
   for (const piece of pieces) {

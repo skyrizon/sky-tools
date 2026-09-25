@@ -1,25 +1,72 @@
-import { textBaseline, textLineHeight, type Annotation, type Rect } from "@/lib/pdf-studio/types";
+import {
+  DEFAULT_LINE_HEIGHT,
+  textBaseline,
+  textBlockHeight,
+  type Annotation,
+  type Rect,
+  type TextAnnotation,
+} from "@/lib/pdf-studio/types";
+import { ITALIC_SKEW, STUDIO_FONTS, type StudioFontId } from "@/lib/pdf-studio/fonts";
 
-export const STUDIO_FONT = "var(--font-thai), 'IBM Plex Sans Thai', sans-serif";
+/** CSS font stack for a studio font (defaults to IBM Plex Sans Thai for older objects). */
+export function fontCss(font: StudioFontId | undefined): string {
+  return `${STUDIO_FONTS[font ?? "plex"].css}, sans-serif`;
+}
 
-let measureCtx: CanvasRenderingContext2D | null = null;
+// Text is measured with a hidden element inside the studio, where the web
+// font CSS variables are defined, so widths match what is drawn.
+let probe: HTMLSpanElement | null = null;
+const widthCache = new Map<string, number>();
 
-/** Width of a text annotation's widest line, in points. */
-export function measureText(text: string, size: number, bold: boolean): number {
-  if (typeof document === "undefined") return text.length * size * 0.55;
-  measureCtx ??= document.createElement("canvas").getContext("2d");
-  if (!measureCtx) return text.length * size * 0.55;
-  const family = getComputedStyle(document.documentElement).getPropertyValue("--font-thai") || "sans-serif";
-  measureCtx.font = `${bold ? 700 : 400} ${size}px ${family}`;
-  return Math.max(...text.split("\n").map((line) => measureCtx!.measureText(line).width), size * 0.5);
+if (typeof document !== "undefined" && "fonts" in document) {
+  // Widths measured with a fallback font are wrong once the real font arrives.
+  document.fonts.addEventListener?.("loadingdone", () => widthCache.clear());
+}
+
+export function measureLine(line: string, size: number, font: StudioFontId | undefined, bold: boolean): number {
+  if (typeof document === "undefined") return line.length * size * 0.55;
+  const key = `${font}|${bold}|${size}|${line}`;
+  const cached = widthCache.get(key);
+  if (cached !== undefined) return cached;
+  if (!probe || !probe.isConnected) {
+    probe = document.createElement("span");
+    probe.setAttribute("aria-hidden", "true");
+    probe.style.cssText = "position:absolute;left:-10000px;top:0;visibility:hidden;white-space:pre;line-height:1";
+    (document.querySelector("[data-studio-root]") ?? document.body).appendChild(probe);
+  }
+  probe.style.fontFamily = fontCss(font);
+  probe.style.fontWeight = bold ? "700" : "400";
+  probe.style.fontSize = `${size}px`;
+  probe.textContent = line || " ";
+  const width = probe.getBoundingClientRect().width;
+  widthCache.set(key, width);
+  return width;
+}
+
+/** Line positions of a text object: alignment within the widest line, baselines by line height. */
+export function textLayout(ann: TextAnnotation) {
+  const lineHeight = ann.lineHeight ?? DEFAULT_LINE_HEIGHT;
+  const texts = ann.text.split("\n");
+  const widths = texts.map((line) => measureLine(line, ann.size, ann.font, ann.bold));
+  const width = Math.max(...widths, ann.size * 0.5);
+  const lines = texts.map((text, i) => {
+    const offset = ann.align === "center" ? (width - widths[i]) / 2 : ann.align === "right" ? width - widths[i] : 0;
+    return { text, x: ann.x + offset, baseline: ann.y + textBaseline(ann.size, i, lineHeight), width: widths[i] };
+  });
+  return { lines, width, height: textBlockHeight(ann.size, texts.length, lineHeight) };
+}
+
+/** Width of a text object's widest line, in points. */
+export function measureText(ann: TextAnnotation): number {
+  return textLayout(ann).width;
 }
 
 /** Axis-aligned bounds of an annotation, in page points. */
 export function annotationBounds(ann: Annotation): Rect {
   switch (ann.type) {
     case "text": {
-      const lines = ann.text.split("\n").length;
-      return { x: ann.x, y: ann.y, w: measureText(ann.text, ann.size, ann.bold), h: lines * textLineHeight(ann.size) };
+      const layout = textLayout(ann);
+      return { x: ann.x, y: ann.y, w: layout.width, h: layout.height };
     }
     case "line":
       return {
@@ -72,22 +119,40 @@ export default function AnnotationShapes({
         if (ann.id === hiddenId) return null;
         switch (ann.type) {
           case "text": {
-            const bounds = annotationBounds(ann);
+            const layout = textLayout(ann);
             return (
               <g key={ann.id} data-ann-id={ann.id} {...hit}>
-                {interactive && <rect x={bounds.x} y={bounds.y} width={bounds.w} height={bounds.h} fill="transparent" />}
-                {ann.text.split("\n").map((line, i) => (
-                  <text
+                {interactive && <rect x={ann.x} y={ann.y} width={layout.width} height={layout.height} fill="transparent" />}
+                {layout.lines.map((line, i) => (
+                  <g
                     key={i}
-                    x={ann.x}
-                    y={ann.y + textBaseline(ann.size, i)}
-                    fontSize={ann.size}
-                    fontWeight={ann.bold ? 700 : 400}
-                    fill={ann.color}
-                    style={{ fontFamily: STUDIO_FONT, whiteSpace: "pre" }}
+                    transform={
+                      ann.italic
+                        ? `translate(${line.x} ${line.baseline}) skewX(${-ITALIC_SKEW}) translate(${-line.x} ${-line.baseline})`
+                        : undefined
+                    }
                   >
-                    {line}
-                  </text>
+                    <text
+                      x={line.x}
+                      y={line.baseline}
+                      fontSize={ann.size}
+                      fontWeight={ann.bold ? 700 : 400}
+                      fill={ann.color}
+                      style={{ fontFamily: fontCss(ann.font), whiteSpace: "pre" }}
+                    >
+                      {line.text}
+                    </text>
+                    {ann.underline && line.text && (
+                      <line
+                        x1={line.x}
+                        x2={line.x + line.width}
+                        y1={line.baseline + ann.size * 0.12}
+                        y2={line.baseline + ann.size * 0.12}
+                        stroke={ann.color}
+                        strokeWidth={Math.max(0.5, ann.size * 0.06)}
+                      />
+                    )}
+                  </g>
                 ))}
               </g>
             );

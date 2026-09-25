@@ -1,7 +1,19 @@
-import { LineCapStyle, PDFDocument, degrees, rgb, type PDFFont, type PDFImage, type PDFPage } from "pdf-lib";
+import {
+  LineCapStyle,
+  PDFDocument,
+  concatTransformationMatrix,
+  degrees,
+  popGraphicsState,
+  pushGraphicsState,
+  rgb,
+  type PDFFont,
+  type PDFImage,
+  type PDFPage,
+} from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 import { applyFormValues } from "@/lib/pdf-studio/forms";
 import { applyMetadata } from "@/lib/pdf-studio/metadata";
+import { ITALIC_SKEW, STUDIO_FONTS, type StudioFontId } from "@/lib/pdf-studio/fonts";
 import {
   displaySize,
   hexToRgb,
@@ -11,6 +23,7 @@ import {
   type Box,
 } from "@/lib/pdf-studio/geometry";
 import {
+  DEFAULT_LINE_HEIGHT,
   textBaseline,
   type Annotation,
   type DocOptions,
@@ -18,16 +31,21 @@ import {
   type StudioPage,
 } from "@/lib/pdf-studio/types";
 
-// IBM Plex Sans Thai covers Thai and Latin, so mixed text needs only one font.
-const FONT_URLS = { regular: "/fonts/IBMPlexSansThai-Regular.ttf", bold: "/fonts/IBMPlexSansThai-Bold.ttf" };
-const fontCache: Partial<Record<keyof typeof FONT_URLS, Promise<ArrayBuffer>>> = {};
+// Every studio font covers Thai and Latin, so a mixed-language line needs only one font.
+const fontCache = new Map<string, Promise<ArrayBuffer>>();
 
-function fontBytes(weight: keyof typeof FONT_URLS): Promise<ArrayBuffer> {
-  fontCache[weight] ??= fetch(FONT_URLS[weight]).then((r) => {
-    if (!r.ok) throw new Error(`Font ${weight} failed to load`);
-    return r.arrayBuffer();
-  });
-  return fontCache[weight]!;
+function fontBytes(font: StudioFontId, weight: "regular" | "bold"): Promise<ArrayBuffer> {
+  const url = STUDIO_FONTS[font].files[weight];
+  if (!fontCache.has(url)) {
+    fontCache.set(
+      url,
+      fetch(url).then((r) => {
+        if (!r.ok) throw new Error(`Font ${url} failed to load`);
+        return r.arrayBuffer();
+      }),
+    );
+  }
+  return fontCache.get(url)!;
 }
 
 const color = (hex: string) => {
@@ -40,7 +58,7 @@ export function pageNumberLabel(template: string, n: number, total: number): str
   return template.replace(/\{n\}/g, String(n)).replace(/\{total\}/g, String(total));
 }
 
-type Fonts = { get(bold: boolean): Promise<PDFFont> };
+type Fonts = { get(bold: boolean, font?: StudioFontId): Promise<PDFFont> };
 
 async function drawAnnotation(
   page: PDFPage,
@@ -55,11 +73,39 @@ async function drawAnnotation(
 
   switch (ann.type) {
     case "text": {
-      const font = await fonts.get(ann.bold);
-      ann.text.split("\n").forEach((line, i) => {
+      const font = await fonts.get(ann.bold, ann.font ?? "plex");
+      const lines = ann.text.split("\n");
+      const widths = lines.map((line) => font.widthOfTextAtSize(line, ann.size));
+      const blockWidth = Math.max(...widths, 0);
+      lines.forEach((line, i) => {
         if (!line) return;
-        const origin = toPdf(ann.x, ann.y + textBaseline(ann.size, i), box, rotation);
-        page.drawText(line, { ...origin, size: ann.size, font, color: color(ann.color), rotate });
+        const offset =
+          ann.align === "center" ? (blockWidth - widths[i]) / 2 : ann.align === "right" ? blockWidth - widths[i] : 0;
+        const x = ann.x + offset;
+        const baseline = ann.y + textBaseline(ann.size, i, ann.lineHeight ?? DEFAULT_LINE_HEIGHT);
+        const origin = toPdf(x, baseline, box, rotation);
+        if (ann.italic) {
+          // Rotate via the graphics state, then slant the glyphs in the text's own
+          // frame (ySkew), so italics stay correct on rotated pages too.
+          const r = (normalizeRotation(rotation) * Math.PI) / 180;
+          page.pushOperators(
+            pushGraphicsState(),
+            concatTransformationMatrix(Math.cos(r), Math.sin(r), -Math.sin(r), Math.cos(r), origin.x, origin.y),
+          );
+          page.drawText(line, { x: 0, y: 0, size: ann.size, font, color: color(ann.color), ySkew: degrees(ITALIC_SKEW) });
+          page.pushOperators(popGraphicsState());
+        } else {
+          page.drawText(line, { ...origin, size: ann.size, font, color: color(ann.color), rotate });
+        }
+        if (ann.underline) {
+          const y = baseline + ann.size * 0.12;
+          page.drawLine({
+            start: toPdf(x, y, box, rotation),
+            end: toPdf(x + widths[i], y, box, rotation),
+            thickness: Math.max(0.5, ann.size * 0.06),
+            color: color(ann.color),
+          });
+        }
       });
       break;
     }
@@ -156,12 +202,15 @@ export async function exportStudioPdf({
   const out = await PDFDocument.create();
   out.registerFontkit(fontkit);
 
-  const embedded: Partial<Record<"regular" | "bold", Promise<PDFFont>>> = {};
+  const embedded = new Map<string, Promise<PDFFont>>();
   const fonts: Fonts = {
-    get(bold) {
+    get(bold, font = "plex") {
       const weight = bold ? "bold" : "regular";
-      embedded[weight] ??= fontBytes(weight).then((bytes) => out.embedFont(bytes, { subset: true }));
-      return embedded[weight]!;
+      const key = `${font}|${weight}`;
+      if (!embedded.has(key)) {
+        embedded.set(key, fontBytes(font, weight).then((bytes) => out.embedFont(bytes, { subset: true })));
+      }
+      return embedded.get(key)!;
     },
   };
 
@@ -182,7 +231,7 @@ export async function exportStudioPdf({
     const values = formValues.get(page.file);
     if (values && Object.keys(values).length > 0) {
       doc.registerFontkit(fontkit);
-      const font = await doc.embedFont(await fontBytes("regular"), { subset: true });
+      const font = await doc.embedFont(await fontBytes("plex", "regular"), { subset: true });
       applyFormValues(doc, values);
       const form = doc.getForm();
       form.updateFieldAppearances(font);

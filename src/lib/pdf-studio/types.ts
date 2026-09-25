@@ -1,4 +1,5 @@
 import type { PdfMetadata } from "@/lib/pdf-studio/metadata";
+import type { StudioFontId } from "@/lib/pdf-studio/fonts";
 
 /**
  * PDF Studio data model. All positions and sizes are in PDF points, measured
@@ -17,6 +18,13 @@ export type TextAnnotation = {
   size: number;
   color: string;
   bold: boolean;
+  /** Missing on older objects: treated as "plex", false, false, "left", 1.3. */
+  font?: StudioFontId;
+  italic?: boolean;
+  underline?: boolean;
+  align?: "left" | "center" | "right";
+  /** Line height as a multiple of the font size. */
+  lineHeight?: number;
   /** Set when this text replaces a line of the original PDF (id of that line). */
   replaces?: string;
 };
@@ -144,11 +152,18 @@ export type FormWidget = {
 
 export type FormValue = string | boolean;
 
+export const DEFAULT_LINE_HEIGHT = 1.3;
+
 /** Baseline of line `i` for text of the given size, relative to the text box top. */
-export function textBaseline(size: number, line: number): number {
-  return size * (0.95 + line * 1.3);
+export function textBaseline(size: number, line: number, lineHeight = DEFAULT_LINE_HEIGHT): number {
+  return size * 0.95 + line * size * lineHeight;
 }
 
-export function textLineHeight(size: number): number {
-  return size * 1.3;
+/** Height of `lines` lines of text: the last line gets the standard box height. */
+export function textBlockHeight(size: number, lines: number, lineHeight = DEFAULT_LINE_HEIGHT): number {
+  return (lines - 1) * size * lineHeight + size * DEFAULT_LINE_HEIGHT;
+}
+
+export function textLineHeight(size: number, lineHeight = DEFAULT_LINE_HEIGHT): number {
+  return size * lineHeight;
 }
