@@ -39,6 +39,7 @@ export type TextSpan = {
   italic?: boolean;
   underline?: boolean;
   color?: string;
+  size?: number;
 };
 
 export type ImageAnnotation = {
@@ -164,18 +165,5 @@ export type FormWidget = {
 
 export type FormValue = string | boolean;
 
+/** Line spacing as a multiple of the font size; text layout is in rich-text.ts (lineMetrics). */
 export const DEFAULT_LINE_HEIGHT = 1.3;
-
-/** Baseline of line `i` for text of the given size, relative to the text box top. */
-export function textBaseline(size: number, line: number, lineHeight = DEFAULT_LINE_HEIGHT): number {
-  return size * 0.95 + line * size * lineHeight;
-}
-
-/** Height of `lines` lines of text: the last line gets the standard box height. */
-export function textBlockHeight(size: number, lines: number, lineHeight = DEFAULT_LINE_HEIGHT): number {
-  return (lines - 1) * size * lineHeight + size * DEFAULT_LINE_HEIGHT;
-}
-
-export function textLineHeight(size: number, lineHeight = DEFAULT_LINE_HEIGHT): number {
-  return size * lineHeight;
-}

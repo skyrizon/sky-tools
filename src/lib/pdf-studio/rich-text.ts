@@ -1,21 +1,21 @@
 /**
  * Mixed formatting inside one text object. The object's own bold/italic/
- * underline/color are the defaults; `spans` override them for ranges of `text`
+ * underline/color/size are the defaults; `spans` override them for ranges of `text`
  * (character offsets, end exclusive), so part of a line can be bold.
  */
 
-import type { TextAnnotation, TextSpan } from "./types";
+import { DEFAULT_LINE_HEIGHT, type TextAnnotation, type TextSpan } from "./types";
 
-export type RunStyle = { bold: boolean; italic: boolean; underline: boolean; color: string };
+export type RunStyle = { bold: boolean; italic: boolean; underline: boolean; color: string; size: number };
 export type RunPatch = Partial<RunStyle>;
 
-export const RUN_KEYS = ["bold", "italic", "underline", "color"] as const;
+export const RUN_KEYS = ["bold", "italic", "underline", "color", "size"] as const;
 
 /** A stretch of text with one style. `start` is its offset in the object's text. */
 export type StyledRun = { text: string; start: number; style: RunStyle };
 
 export function baseStyle(ann: TextAnnotation): RunStyle {
-  return { bold: ann.bold, italic: !!ann.italic, underline: !!ann.underline, color: ann.color };
+  return { bold: ann.bold, italic: !!ann.italic, underline: !!ann.underline, color: ann.color, size: ann.size };
 }
 
 /** The style of every character. */
@@ -30,7 +30,11 @@ function charStyles(ann: TextAnnotation): RunStyle[] {
 }
 
 const sameStyle = (a: RunStyle, b: RunStyle) =>
-  a.bold === b.bold && a.italic === b.italic && a.underline === b.underline && a.color.toLowerCase() === b.color.toLowerCase();
+  a.bold === b.bold &&
+  a.italic === b.italic &&
+  a.underline === b.underline &&
+  a.size === b.size &&
+  a.color.toLowerCase() === b.color.toLowerCase();
 
 /** Compresses per-character styles back into spans that differ from the object's defaults. */
 function toSpans(ann: TextAnnotation, styles: RunStyle[]): TextSpan[] | undefined {
@@ -105,7 +109,7 @@ export function applyRunStyle(ann: TextAnnotation, start: number, end: number, c
 
 /**
  * The formatting shown for a selection: bold/italic/underline only when every
- * selected character has it, and the first character's color.
+ * selected character has it, and the first character's color and size.
  */
 export function rangeStyle(ann: TextAnnotation, start: number, end: number): RunStyle {
   const styles = charStyles(ann).slice(Math.min(start, end), Math.max(start, end));
@@ -115,6 +119,7 @@ export function rangeStyle(ann: TextAnnotation, start: number, end: number): Run
     italic: styles.every((s) => s.italic),
     underline: styles.every((s) => s.underline),
     color: styles[0].color,
+    size: styles[0].size,
   };
 }
 
@@ -141,4 +146,33 @@ export function replaceText(ann: TextAnnotation, text: string): TextAnnotation {
   const inserted = Array.from({ length: text.length - prefix - suffix }, () => inherit);
   const next = { ...ann, text };
   return { ...next, spans: toSpans(next, [...styles.slice(0, prefix), ...inserted, ...styles.slice(old.length - suffix)]) };
+}
+
+/**
+ * Where each line sits: a line is as tall as its largest text, so mixed sizes
+ * never overlap. `baseline` is relative to the object's top: 0.95 × size down
+ * the first line, then one line height per line; the last line is 1.3 × size tall.
+ */
+export function lineMetrics(ann: TextAnnotation) {
+  const lineHeight = ann.lineHeight ?? DEFAULT_LINE_HEIGHT;
+  const lines = styledLines(ann);
+  let top = 0;
+  const metrics = lines.map((runs) => {
+    const size = runs.length ? Math.max(...runs.map((run) => run.style.size)) : ann.size;
+    const line = { size, top, baseline: top + size * 0.95 };
+    top += size * lineHeight;
+    return line;
+  });
+  const last = metrics[metrics.length - 1];
+  return { lines, metrics, height: last.top + last.size * DEFAULT_LINE_HEIGHT };
+}
+
+/** Scales every size in a text object (resizing it with its handles). */
+export function scaleText(ann: TextAnnotation, factor: number): TextAnnotation {
+  const round = (n: number) => Math.max(4, Math.round(n * factor * 10) / 10);
+  return {
+    ...ann,
+    size: round(ann.size),
+    spans: ann.spans?.map((span) => (span.size === undefined ? span : { ...span, size: round(span.size) })),
+  };
 }

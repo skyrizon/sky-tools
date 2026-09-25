@@ -5,7 +5,7 @@ import { hasRealItalic } from "@/lib/pdf-studio/fonts";
 import { styledRuns, type RunStyle } from "@/lib/pdf-studio/rich-text";
 import type { TextAnnotation } from "@/lib/pdf-studio/types";
 
-const styleKey = (s: RunStyle) => `${s.bold ? "b" : ""}${s.italic ? "i" : ""}${s.underline ? "u" : ""}${s.color.toLowerCase()}`;
+const styleKey = (s: RunStyle) => `${s.bold ? "b" : ""}${s.italic ? "i" : ""}${s.underline ? "u" : ""}${s.color.toLowerCase()}@${s.size}`;
 
 // The editable area holds one <span> per run of formatting, plus a trailing
 // <br data-end> so a final empty line stays visible. Offsets count characters
@@ -99,6 +99,8 @@ function render(root: HTMLElement, ann: TextAnnotation) {
     if (run.style.italic && !hasRealItalic(ann.font, run.style.bold)) span.style.fontSynthesis = "style";
     span.style.textDecoration = run.style.underline ? "underline" : "none";
     span.style.color = run.style.color;
+    // Relative to the editor's font size (the object's size at the current zoom).
+    span.style.fontSize = `${run.style.size / ann.size}em`;
     return span;
   });
   const end = document.createElement("br");

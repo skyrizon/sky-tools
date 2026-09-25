@@ -1,13 +1,6 @@
-import {
-  DEFAULT_LINE_HEIGHT,
-  textBaseline,
-  textBlockHeight,
-  type Annotation,
-  type Rect,
-  type TextAnnotation,
-} from "@/lib/pdf-studio/types";
+import type { Annotation, Rect, TextAnnotation } from "@/lib/pdf-studio/types";
 import { ITALIC_SKEW, fontCss, hasRealItalic, type StudioFontId } from "@/lib/pdf-studio/fonts";
-import { styledLines } from "@/lib/pdf-studio/rich-text";
+import { lineMetrics } from "@/lib/pdf-studio/rich-text";
 
 export { fontCss };
 
@@ -51,14 +44,15 @@ export function measureLine(
 
 /**
  * Line positions of a text object: alignment within the widest line, baselines
- * by line height, and each differently formatted run placed along its line.
+ * by line height (each line as tall as its largest text), and each differently
+ * formatted run placed along its line.
  */
 export function textLayout(ann: TextAnnotation) {
-  const lineHeight = ann.lineHeight ?? DEFAULT_LINE_HEIGHT;
-  const measured = styledLines(ann).map((runs) => {
+  const { lines: styled, metrics, height } = lineMetrics(ann);
+  const measured = styled.map((runs) => {
     let x = 0;
     const placed = runs.map((run) => {
-      const width = measureLine(run.text, ann.size, ann.font, run.style.bold, run.style.italic);
+      const width = measureLine(run.text, run.style.size, ann.font, run.style.bold, run.style.italic);
       const at = { ...run, dx: x, width };
       x += width;
       return at;
@@ -71,12 +65,12 @@ export function textLayout(ann: TextAnnotation) {
     const x = ann.x + offset;
     return {
       x,
-      baseline: ann.y + textBaseline(ann.size, i, lineHeight),
+      baseline: ann.y + metrics[i].baseline,
       width: line.width,
       runs: line.runs.map((run) => ({ ...run, x: x + run.dx })),
     };
   });
-  return { lines, width, height: textBlockHeight(ann.size, measured.length, lineHeight) };
+  return { lines, width, height };
 }
 
 /** Width of a text object's widest line, in points. */
@@ -161,7 +155,7 @@ export default function AnnotationShapes({
                         <text
                           x={x}
                           y={line.baseline}
-                          fontSize={ann.size}
+                          fontSize={style.size}
                           fontWeight={style.bold ? 700 : 400}
                           fontStyle={realItalic ? "italic" : undefined}
                           fill={style.color}
@@ -173,10 +167,10 @@ export default function AnnotationShapes({
                           <line
                             x1={x}
                             x2={x + width}
-                            y1={line.baseline + ann.size * 0.12}
-                            y2={line.baseline + ann.size * 0.12}
+                            y1={line.baseline + style.size * 0.12}
+                            y2={line.baseline + style.size * 0.12}
                             stroke={style.color}
-                            strokeWidth={Math.max(0.5, ann.size * 0.06)}
+                            strokeWidth={Math.max(0.5, style.size * 0.06)}
                           />
                         )}
                       </g>

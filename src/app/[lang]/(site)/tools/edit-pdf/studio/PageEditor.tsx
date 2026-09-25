@@ -5,7 +5,6 @@ import { pageNumberLabel } from "@/lib/pdf-studio/export";
 import type { TextRun } from "@/lib/pdf-convert";
 import {
   DEFAULT_LINE_HEIGHT,
-  textLineHeight,
   type Annotation,
   type DocOptions,
   type FormValue,
@@ -16,7 +15,7 @@ import {
 } from "@/lib/pdf-studio/types";
 import AnnotationShapes, { annotationBounds, fontCss, measureText } from "./AnnotationShapes";
 import RichTextEditor from "./RichTextEditor";
-import { replaceText } from "@/lib/pdf-studio/rich-text";
+import { lineMetrics, replaceText, scaleText } from "@/lib/pdf-studio/rich-text";
 import type { StudioFontId } from "@/lib/pdf-studio/fonts";
 
 export type StyleState = {
@@ -337,8 +336,8 @@ export default function PageEditor({
         if (d.handle.includes("w")) r.x = fixed.x - r.w;
       }
       if (o.type === "text") {
-        const size = Math.max(4, Math.round(o.size * (r.h / Math.max(b.h, 0.01)) * 10) / 10);
-        setAnn(o.id, () => ({ ...o, size, x: r.x, y: r.y }));
+        // Every size in the text (including formatted parts) scales together.
+        setAnn(o.id, () => ({ ...scaleText(o, r.h / Math.max(b.h, 0.01)), x: r.x, y: r.y }));
       } else if (o.type === "image" || o.type === "rect" || o.type === "ellipse") {
         setAnn(o.id, () => ({ ...o, x: r.x, y: r.y, w: Math.max(r.w, 2), h: Math.max(r.h, 2) }));
       }
@@ -366,6 +365,7 @@ export default function PageEditor({
 
   const selected = page.annotations.find((a) => a.id === selectedId);
   const editing = page.annotations.find((a) => a.id === editingId && a.type === "text");
+  const firstLineSize = editing?.type === "text" ? lineMetrics(editing).metrics[0].size : 0;
   const selectedBounds = selected ? annotationBounds(selected) : null;
   const pad = 4 / scale;
   const handleSize = (coarse ? 16 : 8) / scale;
@@ -568,11 +568,12 @@ export default function PageEditor({
                 }}
                 style={{
                   left: editing.x * scale,
-                  // Centre the first line's box on the drawn baseline.
-                  top: (editing.y - ((editing.lineHeight ?? DEFAULT_LINE_HEIGHT) - 1) * 0.5 * editing.size + editing.size * 0.02) * scale,
+                  // Centre the first line's box (as tall as its largest text) on the drawn baseline.
+                  top: (editing.y - ((editing.lineHeight ?? DEFAULT_LINE_HEIGHT) - 1) * 0.5 * firstLineSize + firstLineSize * 0.02) * scale,
                   minWidth: (measureText(editing) + editing.size) * scale,
                   fontSize: editing.size * scale,
-                  lineHeight: `${textLineHeight(editing.size, editing.lineHeight) * scale}px`,
+                  // A ratio, so each line grows with the largest text on it, as on the page.
+                  lineHeight: editing.lineHeight ?? DEFAULT_LINE_HEIGHT,
                   fontFamily: fontCss(editing.font),
                   textAlign: editing.align ?? "left",
                   color: editing.color,

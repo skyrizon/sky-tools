@@ -705,14 +705,13 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
         if (a.type === "text") {
           const next = {
             ...a,
-            size: patch.fontSize ?? a.size,
             font: patch.font ?? a.font,
             align: patch.align ?? a.align,
             lineHeight: patch.lineHeight ?? a.lineHeight,
           };
           // Whole-object formatting also replaces any formatting on parts of the text.
-          const { bold, italic, underline, color } = patch;
-          return applyRunStyle(next, 0, next.text.length, { bold, italic, underline, color });
+          const { bold, italic, underline, color, fontSize: size } = patch;
+          return applyRunStyle(next, 0, next.text.length, { bold, italic, underline, color, size });
         }
         if (a.type === "line") return { ...a, stroke: patch.color ?? a.stroke, strokeWidth: patch.strokeWidth ?? a.strokeWidth };
         if (a.type === "ink") return { ...a, stroke: patch.color ?? a.stroke, strokeWidth: patch.strokeWidth ?? a.strokeWidth };
@@ -967,7 +966,7 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
   const textStyle: TextStyle = textTarget && runStyle
     ? {
         font: textTarget.font ?? "plex",
-        size: textTarget.size,
+        size: runStyle.size,
         bold: runStyle.bold,
         italic: runStyle.italic,
         underline: runStyle.underline,
@@ -987,15 +986,15 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
       };
   const applyTextStyle = (patch: Partial<TextStyle>) => {
     const { size, bold, italic, underline, color, ...rest } = patch;
-    const run = { bold, italic, underline, color };
+    const run = { bold, italic, underline, color, size };
     if (partSelected && textTarget && RUN_KEYS.some((key) => run[key] !== undefined)) {
-      // Bold, italic, underline, and color apply to just the selected characters.
+      // Bold, italic, underline, color, and size apply to just the selected characters.
       updateSelectedAnn((a) => (a.type === "text" ? applyRunStyle(a, partSelected.start, partSelected.end, run) : a));
-      if (size !== undefined || Object.keys(rest).length) applyStyle({ ...rest, ...(size !== undefined ? { fontSize: size } : {}) });
+      if (Object.keys(rest).length) applyStyle(rest);
       return;
     }
     const whole: Partial<StyleState> = { ...rest, ...(size !== undefined ? { fontSize: size } : {}) };
-    for (const key of RUN_KEYS) if (run[key] !== undefined) Object.assign(whole, { [key]: run[key] });
+    for (const key of RUN_KEYS) if (key !== "size" && run[key] !== undefined) Object.assign(whole, { [key]: run[key] });
     applyStyle(whole);
   };
   const showTextProps = showFont || (tool === "text" && !selectedAnn);

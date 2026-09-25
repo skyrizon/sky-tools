@@ -14,7 +14,7 @@ import fontkit from "@pdf-lib/fontkit";
 import { applyFormValues } from "@/lib/pdf-studio/forms";
 import { applyMetadata } from "@/lib/pdf-studio/metadata";
 import { ITALIC_SKEW, fallbackFont, fontBytes, type StudioFontId } from "@/lib/pdf-studio/fonts";
-import { styledLines, type RunStyle, type StyledRun } from "@/lib/pdf-studio/rich-text";
+import { lineMetrics, type RunStyle, type StyledRun } from "@/lib/pdf-studio/rich-text";
 import {
   displaySize,
   hexToRgb,
@@ -24,8 +24,6 @@ import {
   type Box,
 } from "@/lib/pdf-studio/geometry";
 import {
-  DEFAULT_LINE_HEIGHT,
-  textBaseline,
   type Annotation,
   type DocOptions,
   type FormValue,
@@ -89,8 +87,9 @@ async function drawAnnotation(
         }
         return segments;
       };
-      const lines = await Promise.all(styledLines(ann).map(segmentsOf));
-      const widthOf = (seg: Segment) => seg.font.font.widthOfTextAtSize(seg.text, ann.size);
+      const layout = lineMetrics(ann);
+      const lines = await Promise.all(layout.lines.map(segmentsOf));
+      const widthOf = (seg: Segment) => seg.font.font.widthOfTextAtSize(seg.text, seg.style.size);
       const widths = lines.map((line) => line.reduce((sum, seg) => sum + widthOf(seg), 0));
       const blockWidth = Math.max(...widths, 0);
       const r = (normalizeRotation(rotation) * Math.PI) / 180;
@@ -99,7 +98,7 @@ async function drawAnnotation(
         const offset =
           ann.align === "center" ? (blockWidth - widths[i]) / 2 : ann.align === "right" ? blockWidth - widths[i] : 0;
         const x = ann.x + offset;
-        const baseline = ann.y + textBaseline(ann.size, i, ann.lineHeight ?? DEFAULT_LINE_HEIGHT);
+        const baseline = ann.y + layout.metrics[i].baseline;
         const origin = toPdf(x, baseline, box, rotation);
         // Rotate via the graphics state and draw in the text's own frame, so a
         // synthetic italic slant (ySkew) stays correct on rotated pages.
@@ -108,31 +107,32 @@ async function drawAnnotation(
           concatTransformationMatrix(Math.cos(r), Math.sin(r), -Math.sin(r), Math.cos(r), origin.x, origin.y),
         );
         let segX = 0;
-        const underlines: { from: number; to: number; color: string }[] = [];
+        const underlines: { from: number; to: number; color: string; size: number }[] = [];
         for (const seg of line) {
           const { font, synthBold, synthItalic } = seg.font;
-          const passes = synthBold ? [0, ann.size * 0.03] : [0];
+          const size = seg.style.size;
+          const passes = synthBold ? [0, size * 0.03] : [0];
           for (const dx of passes) {
             page.drawText(seg.text, {
               x: segX + dx,
               y: 0,
-              size: ann.size,
+              size,
               font,
               color: color(seg.style.color),
               ySkew: synthItalic ? degrees(ITALIC_SKEW) : undefined,
             });
           }
           const width = widthOf(seg);
-          if (seg.style.underline) underlines.push({ from: segX, to: segX + width, color: seg.style.color });
+          if (seg.style.underline) underlines.push({ from: segX, to: segX + width, color: seg.style.color, size });
           segX += width;
         }
         page.pushOperators(popGraphicsState());
-        const y = baseline + ann.size * 0.12;
         for (const u of underlines) {
+          const y = baseline + u.size * 0.12;
           page.drawLine({
             start: toPdf(x + u.from, y, box, rotation),
             end: toPdf(x + u.to, y, box, rotation),
-            thickness: Math.max(0.5, ann.size * 0.06),
+            thickness: Math.max(0.5, u.size * 0.06),
             color: color(u.color),
           });
         }
