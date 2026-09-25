@@ -441,6 +441,12 @@ const en = {
       zoomOut: "Zoom out",
       zoomFit: "Fit",
       tabs: { page: "Page", object: "Object", document: "Document" },
+      panels: {
+        showLeft: "Show page thumbnails",
+        hideLeft: "Hide page thumbnails",
+        showRight: "Show tools panel",
+        hideRight: "Hide tools panel",
+      },
       organizer: {
         open: "Pages",
         title: "Organize pages",
@@ -570,6 +576,7 @@ const en = {
       shortcuts: [
         ["V · E · T · D", "Select / Edit text / Text / Draw"],
         ["P", "Organize pages"],
+        ["[  ·  ]", "Show / hide side panels"],
         ["← →", "Previous / next page"],
         ["R  ·  Shift+R", "Rotate page right / left"],
         ["Delete", "Delete selection"],

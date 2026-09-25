@@ -14,6 +14,11 @@ import {
   Eraser,
   FileText,
   Files,
+  LayoutGrid,
+  PanelLeftClose,
+  PanelLeftOpen,
+  PanelRightClose,
+  PanelRightOpen,
   Highlighter,
   ImagePlus,
   Maximize,
@@ -60,6 +65,7 @@ import FileDropZone from "@/components/FileDropZone";
 import SupportNote from "@/components/SupportNote";
 import PageEditor, { type PendingImage, type StyleState } from "./studio/PageEditor";
 import PageOrganizer from "./studio/PageOrganizer";
+import PageThumb from "./studio/PageThumb";
 import SignatureDialog, { type SignatureImage } from "./studio/SignatureDialog";
 
 type T = Dictionary["editPdf"]["ui"];
@@ -72,6 +78,17 @@ const WIDTHS = [1, 2, 3, 5, 8];
 const FONT_SIZES = [8, 10, 12, 14, 16, 18, 24, 32, 48, 72];
 const ZOOMS = [0.5, 0.75, 1, 1.25, 1.5, 2, 3].map((z) => z * (96 / 72));
 const newId = () => Math.random().toString(36).slice(2, 10);
+const PANELS_KEY = "sky-tools:pdf-studio:panels";
+
+function readPanels(): { left: boolean; right: boolean } {
+  try {
+    const saved = JSON.parse(window.localStorage.getItem(PANELS_KEY) ?? "null");
+    if (saved && typeof saved.left === "boolean" && typeof saved.right === "boolean") return saved;
+  } catch {
+    // Storage unavailable (private mode, blocked): use the defaults.
+  }
+  return { left: false, right: true };
+}
 
 const TOOLS: { tool: Tool; icon: LucideIcon; key?: string }[] = [
   { tool: "select", icon: MousePointer2, key: "v" },
@@ -117,6 +134,9 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
   const [thumbs, setThumbs] = useState<Record<string, string>>({});
   const [previews, setPreviews] = useState<Record<string, string>>({});
   const [organizerOpen, setOrganizerOpen] = useState(false);
+  // The studio only shows panels after a file is opened, so reading storage here can't cause a hydration mismatch.
+  const [panels, setPanels] = useState(() => (typeof window === "undefined" ? { left: false, right: true } : readPanels()));
+  const railListRef = useRef<HTMLOListElement>(null);
   const [textRuns, setTextRuns] = useState<Record<string, TextRun[]>>({});
   const loadingRuns = useRef<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -328,6 +348,24 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
     setSelectedAnnId(id);
     if (id) setPanel("object");
   }, []);
+
+  const togglePanel = useCallback((side: "left" | "right") => {
+    setPanels((prev) => {
+      const next = { ...prev, [side]: !prev[side] };
+      try {
+        window.localStorage.setItem(PANELS_KEY, JSON.stringify(next));
+      } catch {
+        // Not saved; the panel still toggles for this visit.
+      }
+      return next;
+    });
+  }, []);
+
+  // Keep the current page's thumbnail visible in the left panel.
+  useEffect(() => {
+    if (!panels.left) return;
+    railListRef.current?.querySelector(`[data-rail-page="${currentId}"]`)?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [currentId, panels.left]);
 
   // ----- files -----
   function describe(err: unknown): string {
@@ -706,13 +744,15 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
         setTool("select");
       } else if (!mod && key === "r") rotatePages(event.shiftKey ? -90 : 90);
       else if (!mod && key === "p") openOrganizer();
+      else if (!mod && event.key === "[") togglePanel("left");
+      else if (!mod && event.key === "]") togglePanel("right");
       else if (!mod && TOOLS.some((x) => x.key === key)) chooseTool(TOOLS.find((x) => x.key === key)!.tool);
       else return;
       event.preventDefault();
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [pages, currentIndex, selectedAnnId, signatureOpen, organizerOpen, undo, redo, save, goTo, rotatePages, removePages, deleteAnn, updateSelectedAnn]);
+  }, [pages, currentIndex, selectedAnnId, signatureOpen, organizerOpen, togglePanel, undo, redo, save, goTo, rotatePages, removePages, deleteAnn, updateSelectedAnn]);
 
   // ----- render -----
   if (files.length === 0) {
@@ -770,6 +810,16 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
     <div className="flex flex-1 flex-col bg-background-raised lg:min-h-0">
       {/* Main toolbar */}
       <div className="flex flex-wrap items-center gap-1 border-b border-border px-2 py-1.5 sm:px-3">
+        <button
+          type="button"
+          onClick={() => togglePanel("left")}
+          aria-pressed={panels.left}
+          title={`${panels.left ? t.panels.hideLeft : t.panels.showLeft} ([)`}
+          aria-label={panels.left ? t.panels.hideLeft : t.panels.showLeft}
+          className={iconButton}
+        >
+          {panels.left ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
+        </button>
         <span className="mr-1 flex min-w-0 items-center gap-2 px-1 text-sm font-semibold">
           <FileText className="h-4 w-4 shrink-0 text-accent-hover" />
           <span className="max-w-[10rem] truncate">{files[0].name}</span>
@@ -829,6 +879,16 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
             className="rounded-lg bg-gradient-to-br from-accent to-accent-2 px-4 py-2 text-sm font-bold text-white shadow-md shadow-accent/30 hover:brightness-105 disabled:opacity-60"
           >
             {saving ? t.saving : t.save}
+          </button>
+          <button
+            type="button"
+            onClick={() => togglePanel("right")}
+            aria-pressed={panels.right}
+            title={`${panels.right ? t.panels.hideRight : t.panels.showRight} (])`}
+            aria-label={panels.right ? t.panels.hideRight : t.panels.showRight}
+            className={iconButton}
+          >
+            {panels.right ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
           </button>
         </div>
       </div>
@@ -928,7 +988,46 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
 
       {error && <p className="border-b border-border bg-error-soft px-4 py-2 text-sm font-semibold text-error">{error}</p>}
 
-      <div className="grid grid-cols-1 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_280px]">
+      <div
+        className="grid grid-cols-1 transition-[grid-template-columns] duration-200 ease-out lg:min-h-0 lg:flex-1 lg:[grid-template-columns:var(--studio-cols)]"
+        style={{ "--studio-cols": `${panels.left ? "156px" : "0px"} minmax(0,1fr) ${panels.right ? "280px" : "0px"}` } as React.CSSProperties}
+      >
+        {/* Left panel: page thumbnails */}
+        <aside
+          inert={!panels.left}
+          className={`order-2 flex-col overflow-hidden border-border lg:order-none lg:min-h-0 ${panels.left ? "flex border-t lg:border-r lg:border-t-0" : "hidden lg:flex"}`}
+        >
+          <div className="flex min-w-[156px] items-center justify-between px-3 pb-1 pt-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted">{t.pages}</p>
+            <div className="flex">
+              <button type="button" onClick={openOrganizer} title={`${t.organizer.title} (P)`} aria-label={t.organizer.title} className="rounded-md p-1.5 text-muted hover:bg-background hover:text-foreground">
+                <LayoutGrid className="h-4 w-4" />
+              </button>
+              <button type="button" onClick={() => togglePanel("left")} title={`${t.panels.hideLeft} ([)`} aria-label={t.panels.hideLeft} className="rounded-md p-1.5 text-muted hover:bg-background hover:text-foreground">
+                <PanelLeftClose className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+          <ol ref={railListRef} className="flex min-w-[156px] gap-3 overflow-x-auto px-3 pb-3 lg:flex-col lg:overflow-y-auto lg:overflow-x-hidden">
+            {pages.map((page, i) => (
+              <li key={page.id} data-rail-page={page.id} className="shrink-0">
+                <button
+                  type="button"
+                  onClick={() => openPage(page.id)}
+                  aria-label={fill(t.pageLabel, { page: i + 1 })}
+                  aria-current={page.id === current?.id ? "page" : undefined}
+                  className={`flex w-24 flex-col items-center gap-1 rounded-xl border-2 p-1.5 transition lg:w-full ${
+                    page.id === current?.id ? "border-accent bg-accent-soft" : "border-transparent hover:border-border hover:bg-background"
+                  }`}
+                >
+                  <PageThumb page={page} src={thumbs[sourceKey(page)] || undefined} />
+                  <span className={`text-xs font-semibold ${page.id === current?.id ? "text-accent-hover" : "text-muted"}`}>{i + 1}</span>
+                </button>
+              </li>
+            ))}
+          </ol>
+        </aside>
+
         {/* Canvas: all pages in one scrolling column */}
         <section className="relative order-1 h-[70vh] min-h-[380px] bg-background lg:order-none lg:h-auto">
           <div ref={scrollRef} className="absolute inset-0 overflow-auto overscroll-contain">
@@ -982,6 +1081,29 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
             )}
           </div>
 
+          {!panels.left && (
+            <button
+              type="button"
+              onClick={() => togglePanel("left")}
+              title={`${t.panels.showLeft} ([)`}
+              aria-label={t.panels.showLeft}
+              className="absolute left-0 top-1/2 hidden -translate-y-1/2 rounded-r-lg border border-l-0 border-border bg-background-raised px-1 py-3 text-muted shadow-sm hover:text-accent-hover lg:block"
+            >
+              <PanelLeftOpen className="h-4 w-4" />
+            </button>
+          )}
+          {!panels.right && (
+            <button
+              type="button"
+              onClick={() => togglePanel("right")}
+              title={`${t.panels.showRight} (])`}
+              aria-label={t.panels.showRight}
+              className="absolute right-0 top-1/2 hidden -translate-y-1/2 rounded-l-lg border border-r-0 border-border bg-background-raised px-1 py-3 text-muted shadow-sm hover:text-accent-hover lg:block"
+            >
+              <PanelRightOpen className="h-4 w-4" />
+            </button>
+          )}
+
           {current && (
             <>
               <p className="pointer-events-none absolute left-1/2 top-3 max-w-[90%] -translate-x-1/2 truncate rounded-full bg-foreground/80 px-3 py-1 text-xs font-medium text-white">
@@ -1001,8 +1123,11 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
         </section>
 
         {/* Inspector */}
-        <aside className="order-3 flex flex-col border-t border-border lg:order-none lg:min-h-0 lg:border-l lg:border-t-0">
-          <div className="flex border-b border-border" role="tablist">
+        <aside
+          inert={!panels.right}
+          className={`order-3 flex-col overflow-hidden border-border lg:order-none lg:min-h-0 ${panels.right ? "flex border-t lg:border-l lg:border-t-0" : "hidden lg:flex"}`}
+        >
+          <div className="flex min-w-[280px] border-b border-border" role="tablist">
             {(["page", "object", "document"] as const).map((value) => (
               <button
                 key={value}
@@ -1017,7 +1142,7 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
             ))}
           </div>
 
-          <div className="flex flex-col gap-5 p-4 lg:overflow-y-auto">
+          <div className="flex min-w-[280px] flex-col gap-5 p-4 lg:overflow-y-auto">
             {panel === "page" && (
               <>
                 <div>
