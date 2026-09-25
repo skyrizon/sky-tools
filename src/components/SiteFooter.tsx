@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { MessagesSquare } from "lucide-react";
+import { DiscordIcon, KofiIcon } from "@/components/BrandIcons";
 import type { Dictionary } from "@/dictionaries";
-import { DISCORD_URL } from "@/lib/community";
+import { DISCORD_URL, KOFI_URL } from "@/lib/community";
 import { localePath, type Locale } from "@/lib/i18n";
 
 export default function SiteFooter({ lang, t }: { lang: Locale; t: Dictionary["footer"] }) {
@@ -25,17 +25,30 @@ export default function SiteFooter({ lang, t }: { lang: Locale; t: Dictionary["f
             </Link>
           </p>
 
-          {DISCORD_URL && (
-            <a
-              href={DISCORD_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 self-start rounded-lg border border-border px-3 py-2 font-semibold hover:border-accent hover:text-accent-hover"
-            >
-              <MessagesSquare className="h-4 w-4" strokeWidth={1.75} />
-              {t.joinDiscord}
-            </a>
-          )}
+          <div className="flex flex-wrap gap-2 self-start">
+            {KOFI_URL && (
+              <a
+                href={KOFI_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-lg bg-accent px-3 py-2 font-semibold text-white hover:bg-accent-hover"
+              >
+                <KofiIcon className="h-5 w-5 text-white" />
+                {t.supportKofi}
+              </a>
+            )}
+            {DISCORD_URL && (
+              <a
+                href={DISCORD_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 font-semibold hover:border-accent hover:text-accent-hover"
+              >
+                <DiscordIcon className="h-4 w-4 text-[#5865f2]" />
+                {t.joinDiscord}
+              </a>
+            )}
+          </div>
         </div>
 
         <div className="flex flex-col gap-3 border-t border-border-soft pt-6 sm:flex-row sm:items-center sm:justify-between">

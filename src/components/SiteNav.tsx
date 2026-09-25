@@ -1,7 +1,8 @@
 import Link from "next/link";
 import Image from "next/image";
 import type { Dictionary } from "@/dictionaries";
-import { KOFI_URL } from "@/lib/community";
+import { DISCORD_URL, KOFI_URL } from "@/lib/community";
+import { DiscordIcon } from "@/components/BrandIcons";
 import { localePath, type Locale } from "@/lib/i18n";
 import Wordmark from "@/components/Wordmark";
 import LanguageSwitch from "@/components/LanguageSwitch";
@@ -20,6 +21,18 @@ export default function SiteNav({ lang, t }: { lang: Locale; t: Dictionary["nav"
             {t.community}
           </Link>
           <LanguageSwitch lang={lang} label={t.switchLabel} ariaLabel={t.switchAria} />
+          {DISCORD_URL && (
+            <a
+              href={DISCORD_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={t.discordAria}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border p-1.5 text-muted hover:border-accent hover:text-accent-hover sm:py-1 sm:pl-2 sm:pr-3"
+            >
+              <DiscordIcon className="h-5 w-5 shrink-0 text-[#5865f2]" />
+              <span className="hidden sm:inline">{t.discord}</span>
+            </a>
+          )}
           {KOFI_URL && (
             <a
               href={KOFI_URL}

@@ -13,6 +13,8 @@ const th: Dictionary = {
   nav: {
     tools: "เครื่องมือ",
     community: "ชุมชน",
+    discord: "Discord",
+    discordAria: "เข้าร่วม Discord ของ Sky Tools",
     coffee: "เลี้ยงกาแฟ",
     coffeeAria: "สนับสนุน Sky Tools ผ่าน Ko-fi",
     switchLabel: "EN",
@@ -23,6 +25,7 @@ const th: Dictionary = {
     prompt: "เจอปัญหาหรือมีไอเดีย?",
     sendFeedback: "ส่งความคิดเห็น",
     joinDiscord: "เข้าร่วม Discord",
+    supportKofi: "สนับสนุนบน Ko-fi",
     about: "เกี่ยวกับเรา",
     privacy: "ความเป็นส่วนตัว",
     terms: "ข้อกำหนด",
@@ -110,6 +113,8 @@ const th: Dictionary = {
     before: "Sky Tools ใช้ได้ฟรีสำหรับทุกคน ถ้าอยากเป็นกำลังใจให้เรา เลี้ยงกาแฟสักแก้วผ่าน",
     link: "Ko-fi",
     after: "ก็มีความหมายมาก ไม่บังคับเลย",
+    discordBefore: "มีไอเดียหรือคำถาม? มาคุยกันได้ที่",
+    discordLink: "Discord",
     dismiss: "ปิด",
   },
 

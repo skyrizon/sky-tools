@@ -4,6 +4,7 @@ import type { ToolSlug } from "@/lib/tools";
 import type { ConversionSlug } from "@/lib/conversions";
 import { localeAlternates, localePath, type Locale } from "@/lib/i18n";
 import { SITE_NAME, SITE_URL, absoluteUrl } from "@/lib/site";
+import { DISCORD_URL, KOFI_URL } from "@/lib/community";
 
 export type FaqItem = { q: string; a: string };
 
@@ -159,7 +160,7 @@ export function siteJsonLd(dict: Dictionary, locale: Locale): object[] {
       name: SITE_NAME,
       url: SITE_URL,
       logo: absoluteUrl("/logo-lockup.png"),
-      sameAs: ["https://ko-fi.com/skyrizon"],
+      sameAs: [KOFI_URL, DISCORD_URL].filter(Boolean),
     },
   ];
 }

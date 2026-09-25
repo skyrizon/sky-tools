@@ -11,6 +11,8 @@ const en = {
   nav: {
     tools: "Tools",
     community: "Community",
+    discord: "Discord",
+    discordAria: "Join the Sky Tools Discord",
     coffee: "Buy me a coffee",
     coffeeAria: "Support Sky Tools on Ko-fi",
     switchLabel: "ไทย",
@@ -21,6 +23,7 @@ const en = {
     prompt: "Found a bug or have an idea?",
     sendFeedback: "Send feedback",
     joinDiscord: "Join Discord",
+    supportKofi: "Support on Ko-fi",
     about: "About",
     privacy: "Privacy",
     terms: "Terms",
@@ -109,6 +112,8 @@ const en = {
     before: "Sky Tools stays free for everyone. If you'd like to cheer us on, a coffee on",
     link: "Ko-fi",
     after: "means a lot. Totally optional.",
+    discordBefore: "Got an idea or a question? Come hang out on",
+    discordLink: "Discord",
     dismiss: "Dismiss",
   },
 

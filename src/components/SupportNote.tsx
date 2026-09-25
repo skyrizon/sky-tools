@@ -4,9 +4,9 @@ import { useState } from "react";
 import Image from "next/image";
 import { X } from "lucide-react";
 import type { Dictionary } from "@/dictionaries";
-import { KOFI_URL } from "@/lib/community";
+import { DISCORD_URL, KOFI_URL } from "@/lib/community";
 
-/** A friendly, optional Ko-fi nudge shown after someone finishes using a tool. */
+/** A friendly, optional Ko-fi (and Discord) nudge shown after someone finishes using a tool. */
 export default function SupportNote({
   t,
   generic = false,
@@ -47,6 +47,19 @@ export default function SupportNote({
           </a>{" "}
           {t.after}
         </p>
+        {DISCORD_URL && (
+          <p className="mt-1 text-muted">
+            {t.discordBefore}{" "}
+            <a
+              href={DISCORD_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-semibold text-accent-hover hover:underline"
+            >
+              {t.discordLink}
+            </a>
+          </p>
+        )}
       </div>
       <button
         type="button"

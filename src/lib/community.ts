@@ -1,5 +1,5 @@
 /** Community links and feedback settings. Any link left empty is hidden. */
-export const DISCORD_URL = "";
+export const DISCORD_URL = "https://discord.gg/PSVMTAWKWV";
 export const KOFI_URL = "https://ko-fi.com/skyrizon";
 
 export const FEEDBACK_TYPES = ["bug", "idea", "other"] as const;
