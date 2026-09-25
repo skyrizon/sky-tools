@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import Script from "next/script";
 import { ADSENSE_CLIENT_ID } from "@/lib/ads";
 
 declare global {
@@ -30,6 +31,14 @@ export default function AdSlot({ slot, className = "" }: { slot: string; classNa
   // Reserve the ad's height up front so the page doesn't jump when it loads (CLS).
   return (
     <div className={`min-h-[280px] ${className}`}>
+      {/* Loaded only where an ad unit renders; the id makes Next load it once per page. */}
+      <Script
+        id="adsbygoogle-js"
+        async
+        src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT_ID}`}
+        crossOrigin="anonymous"
+        strategy="afterInteractive"
+      />
       <ins
         className="adsbygoogle block"
         style={{ display: "block" }}
