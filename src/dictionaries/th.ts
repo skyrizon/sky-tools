@@ -441,6 +441,15 @@ const th: Dictionary = {
       zoomOut: "ซูมออก",
       zoomFit: "พอดีจอ",
       tabs: { page: "หน้า", object: "วัตถุ", document: "เอกสาร" },
+      organizer: {
+        open: "หน้า",
+        title: "จัดการหน้า",
+        hint: "ลากเพื่อสลับลำดับ · คลิกหน้าเพื่อเปิด",
+        add: "เพิ่มหน้า",
+        clearSelection: "ยกเลิกการเลือก",
+        close: "ปิด",
+        done: "เสร็จ",
+      },
       tools: {
         select: "เลือก",
         text: "ข้อความ",
@@ -558,6 +567,7 @@ const th: Dictionary = {
       shortcutsTitle: "ปุ่มลัด",
       shortcuts: [
         ["V · T · D", "เลือก / ข้อความ / วาด"],
+        ["P", "จัดการหน้า"],
         ["← →", "หน้าก่อน / หน้าถัดไป"],
         ["R  ·  Shift+R", "หมุนหน้าขวา / ซ้าย"],
         ["Delete", "ลบสิ่งที่เลือก"],

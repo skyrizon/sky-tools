@@ -13,6 +13,7 @@ import {
   Crop,
   Eraser,
   FileText,
+  Files,
   Highlighter,
   ImagePlus,
   Maximize,
@@ -55,8 +56,8 @@ import type {
 } from "@/lib/pdf-studio/types";
 import FileDropZone from "@/components/FileDropZone";
 import SupportNote from "@/components/SupportNote";
-import AnnotationShapes from "./studio/AnnotationShapes";
 import PageEditor, { type PendingImage, type StyleState } from "./studio/PageEditor";
+import PageOrganizer from "./studio/PageOrganizer";
 import SignatureDialog, { type SignatureImage } from "./studio/SignatureDialog";
 
 type T = Dictionary["editPdf"]["ui"];
@@ -112,7 +113,7 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
   const [signatures, setSignatures] = useState<SignatureImage[]>([]);
   const [thumbs, setThumbs] = useState<Record<string, string>>({});
   const [previews, setPreviews] = useState<Record<string, string>>({});
-  const [dragFrom, setDragFrom] = useState<number | null>(null);
+  const [organizerOpen, setOrganizerOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [exportFormat, setExportFormat] = useState<"image/jpeg" | "image/png">("image/jpeg");
@@ -125,7 +126,6 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
   const renderingThumb = useRef(false);
   const renderingPreview = useRef<string | null>(null);
   const urlsRef = useRef<string[]>([]);
-  const railRef = useRef<HTMLOListElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [areaWidth, setAreaWidth] = useState(800);
   const [visibleIds, setVisibleIds] = useState<number[]>([]);
@@ -229,10 +229,6 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
         setThumbs((prev) => ({ ...prev, [key]: url }));
       });
   }, [pages, thumbs]);
-
-  useEffect(() => {
-    railRef.current?.querySelector(`[data-page-id="${currentId}"]`)?.scrollIntoView({ block: "nearest", inline: "nearest" });
-  }, [currentId]);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -351,27 +347,6 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
   }
 
   // ----- page actions -----
-  function selectPage(event: React.MouseEvent, page: StudioPage, index: number) {
-    if (event.shiftKey) {
-      const [from, to] = [Math.min(anchor.current, index), Math.max(anchor.current, index)];
-      setSelected(new Set(pages.slice(from, to + 1).map((p) => p.id)));
-    } else if (event.ctrlKey || event.metaKey) {
-      setSelected((prev) => {
-        const next = new Set(prev);
-        if (next.has(page.id)) next.delete(page.id);
-        else next.add(page.id);
-        return next;
-      });
-      anchor.current = index;
-    } else {
-      setSelected(new Set([page.id]));
-      anchor.current = index;
-    }
-    setCurrentId(page.id);
-    setSelectedAnnId(null);
-    scrollToPage(page.id);
-  }
-
   const goTo = useCallback(
     (index: number) => {
       const page = pages[Math.min(Math.max(index, 0), pages.length - 1)];
@@ -424,13 +399,29 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
     commit(next);
   }
 
-  function dropOn(index: number) {
-    if (dragFrom === null || dragFrom === index) return;
-    const next = [...pages];
-    const [moved] = next.splice(dragFrom, 1);
-    next.splice(index, 0, moved);
+  /** Moves the pages with these ids (keeping their order) to start at `insertBefore`. */
+  function reorderPages(ids: number[], insertBefore: number) {
+    const moving = pages.filter((p) => ids.includes(p.id));
+    const rest = pages.filter((p) => !ids.includes(p.id));
+    const at = pages.slice(0, insertBefore).filter((p) => !ids.includes(p.id)).length;
+    const next = [...rest.slice(0, at), ...moving, ...rest.slice(at)];
+    if (next.every((p, i) => p.id === pages[i].id)) return;
     commit(next);
-    setDragFrom(null);
+  }
+
+  // The organizer starts with nothing selected, so bulk actions only touch pages picked there.
+  function openOrganizer() {
+    setSelected(new Set());
+    setOrganizerOpen(true);
+  }
+
+  function openPage(id: number) {
+    setOrganizerOpen(false);
+    setCurrentId(id);
+    setSelected(new Set([id]));
+    setSelectedAnnId(null);
+    // Wait for the modal to close before scrolling the canvas.
+    setTimeout(() => scrollToPage(id), 50);
   }
 
   // ----- annotation actions -----
@@ -620,7 +611,7 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
     function onKey(event: KeyboardEvent) {
       const target = event.target;
       if (target instanceof Element && target.closest("input, textarea, select, [contenteditable]")) return;
-      if (signatureOpen) return;
+      if (signatureOpen || organizerOpen) return;
       const mod = event.ctrlKey || event.metaKey;
       const key = event.key.toLowerCase();
       const nudge = event.shiftKey ? 10 : 1;
@@ -648,13 +639,14 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
         setPendingImage(null);
         setTool("select");
       } else if (!mod && key === "r") rotatePages(event.shiftKey ? -90 : 90);
+      else if (!mod && key === "p") openOrganizer();
       else if (!mod && TOOLS.some((x) => x.key === key)) chooseTool(TOOLS.find((x) => x.key === key)!.tool);
       else return;
       event.preventDefault();
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [pages, currentIndex, selectedAnnId, signatureOpen, undo, redo, save, goTo, rotatePages, removePages, deleteAnn, updateSelectedAnn]);
+  }, [pages, currentIndex, selectedAnnId, signatureOpen, organizerOpen, undo, redo, save, goTo, rotatePages, removePages, deleteAnn, updateSelectedAnn]);
 
   // ----- render -----
   if (files.length === 0) {
@@ -717,6 +709,16 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
           <span className="max-w-[10rem] truncate">{files[0].name}</span>
           <span className="shrink-0 font-normal text-muted">· {fill(t.pageCount, { count: pages.length })}</span>
         </span>
+        <button
+          type="button"
+          onClick={() => openOrganizer()}
+          title={`${t.organizer.title} (P)`}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-sm font-semibold hover:border-accent hover:text-accent-hover"
+        >
+          <Files className="h-4 w-4" />
+          {t.organizer.open}
+          <span className="rounded-full bg-accent-soft px-1.5 text-xs text-accent-hover">{pages.length}</span>
+        </button>
         <label className={`${iconButton} cursor-pointer`} title={t.addPages}>
           <Plus className="h-4 w-4" />
           <span className="hidden xl:inline">{t.addPages}</span>
@@ -860,70 +862,7 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
 
       {error && <p className="border-b border-border bg-error-soft px-4 py-2 text-sm font-semibold text-error">{error}</p>}
 
-      <div className="grid grid-cols-1 lg:min-h-0 lg:flex-1 lg:grid-cols-[168px_minmax(0,1fr)_280px]">
-        {/* Page rail */}
-        <aside className="order-2 border-t border-border lg:order-none lg:overflow-y-auto lg:border-r lg:border-t-0">
-          <p className="hidden px-4 pt-3 text-xs font-semibold uppercase tracking-wide text-muted lg:block">{t.pages}</p>
-          <ol ref={railRef} className="flex gap-3 overflow-x-auto p-3 lg:flex-col lg:overflow-visible">
-            {pages.map((page, i) => {
-              const thumb = thumbs[sourceKey(page)];
-              const isSelected = selected.has(page.id);
-              const isCurrent = page.id === current?.id;
-              const wide = page.size.w >= page.size.h;
-              return (
-                <li
-                  key={page.id}
-                  data-page-id={page.id}
-                  draggable
-                  onDragStart={() => setDragFrom(i)}
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    dropOn(i);
-                  }}
-                  onDragEnd={() => setDragFrom(null)}
-                  className="shrink-0"
-                >
-                  <button
-                    type="button"
-                    onClick={(e) => selectPage(e, page, i)}
-                    aria-label={fill(t.pageLabel, { page: i + 1 })}
-                    aria-pressed={isSelected}
-                    className={`flex w-24 flex-col items-center gap-1.5 rounded-xl border-2 p-1.5 transition lg:w-full ${dragFrom === i ? "opacity-40" : ""} ${
-                      isSelected ? "border-accent bg-accent-soft" : "border-transparent hover:border-border hover:bg-background"
-                    }`}
-                  >
-                    <span className="flex aspect-[3/4] w-full items-center justify-center overflow-hidden rounded-md bg-background">
-                      <span
-                        className="relative bg-white shadow-sm transition-transform"
-                        style={{
-                          aspectRatio: `${page.size.w} / ${page.size.h}`,
-                          width: wide ? "88%" : "auto",
-                          height: wide ? "auto" : "88%",
-                          transform: `rotate(${page.rotation}deg)`,
-                        }}
-                      >
-                        {thumb ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={thumb} alt="" draggable={false} className="absolute inset-0 h-full w-full" />
-                        ) : (
-                          <span className="absolute inset-0 animate-pulse bg-border-soft" />
-                        )}
-                        {page.annotations.length > 0 && (
-                          <svg viewBox={`0 0 ${page.size.w} ${page.size.h}`} className="absolute inset-0 h-full w-full">
-                            <AnnotationShapes annotations={page.annotations} />
-                          </svg>
-                        )}
-                      </span>
-                    </span>
-                    <span className={`text-xs font-semibold ${isCurrent ? "text-accent-hover" : "text-muted"}`}>{i + 1}</span>
-                  </button>
-                </li>
-              );
-            })}
-          </ol>
-        </aside>
-
+      <div className="grid grid-cols-1 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_280px]">
         {/* Canvas: all pages in one scrolling column */}
         <section className="relative order-1 h-[70vh] min-h-[380px] bg-background lg:order-none lg:h-auto">
           <div ref={scrollRef} className="absolute inset-0 overflow-auto overscroll-contain">
@@ -1262,6 +1201,24 @@ export default function EditPdfClient({ t, support }: { t: T; support: Dictionar
           else setTool("select");
         }}
       />
+
+      {organizerOpen && (
+        <PageOrganizer
+          t={t}
+          pages={pages}
+          imageFor={(page) => thumbs[sourceKey(page)] || previews[sourceKey(page)] || undefined}
+          currentId={currentId}
+          selected={selected}
+          onSelectedChange={setSelected}
+          onOpen={openPage}
+          onReorder={reorderPages}
+          onRotate={(by) => rotatePages(by)}
+          onDuplicate={duplicatePages}
+          onDelete={removePages}
+          onAddFiles={(files) => void addFiles(files)}
+          onClose={() => setOrganizerOpen(false)}
+        />
+      )}
 
       {signatureOpen && (
         <SignatureDialog

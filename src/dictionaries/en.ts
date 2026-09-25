@@ -440,6 +440,15 @@ const en = {
       zoomOut: "Zoom out",
       zoomFit: "Fit",
       tabs: { page: "Page", object: "Object", document: "Document" },
+      organizer: {
+        open: "Pages",
+        title: "Organize pages",
+        hint: "Drag to reorder · click a page to open it",
+        add: "Add pages",
+        clearSelection: "Clear selection",
+        close: "Close",
+        done: "Done",
+      },
       tools: {
         select: "Select",
         text: "Text",
@@ -557,6 +566,7 @@ const en = {
       shortcutsTitle: "Keyboard shortcuts",
       shortcuts: [
         ["V · T · D", "Select / Text / Draw"],
+        ["P", "Organize pages"],
         ["← →", "Previous / next page"],
         ["R  ·  Shift+R", "Rotate page right / left"],
         ["Delete", "Delete selection"],
