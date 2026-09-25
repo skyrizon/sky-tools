@@ -19,10 +19,11 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-// Geist has no Thai glyphs; the browser falls back to this for Thai text.
+// Geist has no Thai glyphs; the browser falls back to this for Thai text. Its Latin
+// subset is only downloaded where the PDF Studio renders text in this font.
 const plexThai = IBM_Plex_Sans_Thai({
   variable: "--font-thai",
-  subsets: ["thai"],
+  subsets: ["thai", "latin"],
   weight: ["400", "600", "700"],
 });
 

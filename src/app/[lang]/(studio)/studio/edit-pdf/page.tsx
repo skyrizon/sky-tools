@@ -1,11 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Charm, Sriracha } from "next/font/google";
 import { CircleHelp } from "lucide-react";
 import { getDictionary } from "@/dictionaries";
 import { hasLocale, localeAlternates, localePath } from "@/lib/i18n";
 import Wordmark from "@/components/Wordmark";
 import LanguageSwitch from "@/components/LanguageSwitch";
 import EditPdfClient from "@/app/[lang]/(site)/tools/edit-pdf/EditPdfClient";
+
+// Handwriting styles (Thai + Latin) for typed signatures.
+const signFont1 = Sriracha({ weight: "400", subsets: ["thai", "latin"], variable: "--font-sign-1" });
+const signFont2 = Charm({ weight: "700", subsets: ["thai", "latin"], variable: "--font-sign-2" });
 
 export async function generateMetadata({ params }: PageProps<"/[lang]/studio/edit-pdf">): Promise<Metadata> {
   const { lang } = await params;
@@ -27,7 +32,7 @@ export default async function PdfStudioPage({ params }: PageProps<"/[lang]/studi
   const dict = getDictionary(lang);
 
   return (
-    <div className="flex min-h-dvh flex-col bg-background lg:h-dvh">
+    <div className={`${signFont1.variable} ${signFont2.variable} flex min-h-dvh flex-col bg-background lg:h-dvh`}>
       <header className="flex items-center gap-3 border-b border-border bg-background-raised px-4 py-2">
         <Wordmark href={localePath(lang, "/")} height={32} />
         <span className="text-sm font-bold">{dict.editPdf.studio.title}</span>
@@ -42,7 +47,7 @@ export default async function PdfStudioPage({ params }: PageProps<"/[lang]/studi
           <LanguageSwitch lang={lang} label={dict.nav.switchLabel} ariaLabel={dict.nav.switchAria} />
         </nav>
       </header>
-      <EditPdfClient t={dict.editPdf.ui} support={dict.support} fullscreen />
+      <EditPdfClient t={dict.editPdf.ui} support={dict.support} />
     </div>
   );
 }

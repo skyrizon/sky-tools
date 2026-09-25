@@ -45,6 +45,17 @@ export function releasePdf(file: File): void {
   task.then((t) => t.destroy()).catch(() => {});
 }
 
+/** Each page's size in points as displayed (with the page's own rotation applied). */
+export async function getPdfPageSizes(file: File): Promise<{ w: number; h: number }[]> {
+  const doc = await openPdf(file);
+  const sizes: { w: number; h: number }[] = [];
+  for (let i = 1; i <= doc.numPages; i++) {
+    const viewport = (await doc.getPage(i)).getViewport({ scale: 1 });
+    sizes.push({ w: viewport.width, h: viewport.height });
+  }
+  return sizes;
+}
+
 export async function getPdfPageCount(file: File): Promise<number> {
   const doc = await openPdf(file);
   return doc.numPages;
