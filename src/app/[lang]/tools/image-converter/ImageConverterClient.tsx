@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { zip } from "fflate";
 import {
   convertImage,
   supportsQuality,
@@ -11,6 +10,7 @@ import {
 } from "@/lib/image-convert";
 import { getPdfPageCount, releasePdf, renderPdfPageToImage } from "@/lib/pdf-convert";
 import SupportNote from "@/components/SupportNote";
+import { formatBytes, saveBlob, zipFiles } from "@/lib/files";
 import type { Dictionary } from "@/dictionaries";
 import { format as fill } from "@/lib/i18n";
 
@@ -28,12 +28,6 @@ type Item = {
 };
 
 const LARGE_PDF_PAGES = 100;
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
-}
 
 export default function ImageConverterClient({
   t,
@@ -170,17 +164,10 @@ export default function ImageConverterClient({
     return `${name}.${outputExt}`;
   }
 
-  function saveUrl(url: string, fileName: string) {
-    const link = document.createElement("a");
-    link.download = fileName;
-    link.href = url;
-    link.click();
-    setDownloaded(true);
-  }
-
   function downloadItem(item: Item) {
-    if (!item.url) return;
-    saveUrl(item.url, itemFileName(item));
+    if (!item.blob) return;
+    saveBlob(item.blob, itemFileName(item));
+    setDownloaded(true);
   }
 
   async function downloadAll() {
@@ -192,24 +179,11 @@ export default function ImageConverterClient({
 
     setZipping(true);
     try {
-      // Images are already compressed, so store them as-is (level 0) for speed.
-      const files: Record<string, [Uint8Array, { level: 0 }]> = {};
-      for (const item of done) {
-        let fileName = itemFileName(item);
-        for (let n = 2; files[fileName]; n++) {
-          fileName = fileName.replace(/(-\d+)?(\.\w+)$/, `-${n}$2`);
-        }
-        files[fileName] = [new Uint8Array(await item.blob!.arrayBuffer()), { level: 0 }];
-      }
-      const data = await new Promise<Uint8Array>((resolve, reject) =>
-        zip(files, (err, out) => (err ? reject(err) : resolve(out))),
-      );
-
+      const archive = await zipFiles(done.map((item) => ({ name: itemFileName(item), data: item.blob! })));
       const sources = new Set(done.map((item) => item.file.name));
       const zipName = sources.size === 1 ? baseName(done[0].file.name) : "sky-tools-images";
-      const url = URL.createObjectURL(new Blob([data as BlobPart], { type: "application/zip" }));
-      saveUrl(url, `${zipName}.zip`);
-      setTimeout(() => URL.revokeObjectURL(url), 10_000);
+      saveBlob(archive, `${zipName}.zip`);
+      setDownloaded(true);
     } finally {
       setZipping(false);
     }

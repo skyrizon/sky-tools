@@ -9,9 +9,12 @@ import { KOFI_URL } from "@/lib/community";
 /** A friendly, optional Ko-fi nudge shown after someone finishes using a tool. */
 export default function SupportNote({
   t,
+  generic = false,
   className = "",
 }: {
   t: Dictionary["support"];
+  /** Use the heading for tools that don't produce a file (e.g. the scanner). */
+  generic?: boolean;
   className?: string;
 }) {
   const [dismissed, setDismissed] = useState(false);
@@ -31,7 +34,7 @@ export default function SupportNote({
         className="h-11 w-11 shrink-0 rounded-full border-2 border-background-raised shadow-sm"
       />
       <div className="pr-5">
-        <p className="font-semibold">{t.title}</p>
+        <p className="font-semibold">{generic ? t.titleGeneric : t.title}</p>
         <p className="mt-0.5 text-muted">
           {t.before}{" "}
           <a

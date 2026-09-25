@@ -1,4 +1,13 @@
-import { QrCode, ImageIcon, type LucideIcon } from "lucide-react";
+import {
+  Combine,
+  FileImage,
+  ImageDown,
+  ImageIcon,
+  QrCode,
+  ScanQrCode,
+  Scissors,
+  type LucideIcon,
+} from "lucide-react";
 import type { Dictionary } from "@/dictionaries";
 
 export type ToolSlug = keyof Dictionary["tools"];
@@ -19,6 +28,11 @@ export type Tool = {
 export const TOOLS: Tool[] = [
   { slug: "qr-generator", category: "qr", icon: QrCode },
   { slug: "image-converter", category: "image", icon: ImageIcon },
+  { slug: "image-compressor", category: "image", icon: ImageDown },
+  { slug: "images-to-pdf", category: "pdf", icon: FileImage },
+  { slug: "pdf-merge", category: "pdf", icon: Combine },
+  { slug: "pdf-split", category: "pdf", icon: Scissors },
+  { slug: "qr-scanner", category: "qr", icon: ScanQrCode },
 ];
 
 export function isToolSlug(value: string): value is ToolSlug {

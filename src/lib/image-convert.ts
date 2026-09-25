@@ -26,24 +26,33 @@ function loadImage(file: File): Promise<HTMLImageElement> {
   });
 }
 
+/** Output format that keeps the input's type where the browser can encode it (else JPG). */
+export function sameFormatAs(file: File): ImageOutputFormat {
+  return OUTPUT_FORMATS.some((f) => f.value === file.type) ? (file.type as ImageOutputFormat) : "image/jpeg";
+}
+
 export async function convertImage(
   file: File,
   format: ImageOutputFormat,
   quality: number,
+  { maxEdge }: { maxEdge?: number } = {},
 ): Promise<Blob> {
   const img = await loadImage(file);
+  // Shrink (never enlarge) so the longest edge fits within maxEdge.
+  const scale = maxEdge ? Math.min(1, maxEdge / Math.max(img.naturalWidth, img.naturalHeight)) : 1;
   const canvas = document.createElement("canvas");
-  canvas.width = img.naturalWidth;
-  canvas.height = img.naturalHeight;
+  canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
+  canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Canvas is not supported in this browser.");
+  ctx.imageSmoothingQuality = "high";
 
   if (format === "image/jpeg") {
     // JPEG has no alpha channel — flatten onto white first.
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
-  ctx.drawImage(img, 0, 0);
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
   return new Promise((resolve, reject) => {
     canvas.toBlob(
