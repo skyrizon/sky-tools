@@ -4,20 +4,17 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && next build",
+    "build": "next build",
     "start": "next start",
     "lint": "eslint"
   },
   "dependencies": {
-    "@auth/prisma-adapter": "^2.11.3",
-    "@prisma/client": "^6.19.3",
+    "@fontsource/geist-sans": "^5.3.0",
     "@types/qrcode": "^1.5.6",
-    "bcryptjs": "^3.0.3",
+    "fflate": "^0.8.3",
     "lucide-react": "^1.37.0",
     "next": "16.3.3",
-    "next-auth": "^5.0.0-beta.32",
     "pdfjs-dist": "^6.3.289",
-    "prisma": "^6.19.3",
     "qrcode": "^1.5.4",
     "react": "19.2.8",
     "react-dom": "19.2.8"

@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useSession } from "next-auth/react";
 import {
   resolveQrData,
   QrTemplateError,
@@ -10,6 +9,7 @@ import {
 } from "@/lib/qr-templates";
 import { renderQrToCanvas, renderQrToSvgString, type DotStyle } from "@/lib/qr-render";
 import AdSlot from "@/components/AdSlot";
+import SupportNote from "@/components/SupportNote";
 import { AD_SLOTS } from "@/lib/ads";
 import { ToolInfoSection, Faq } from "@/components/ToolInfo";
 
@@ -48,11 +48,11 @@ function loadImage(dataUrl: string): Promise<HTMLImageElement> {
 }
 
 export default function QrGeneratorClient() {
-  const { data: session } = useSession();
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const [input, setInput] = useState<QrTemplateInput>(DEFAULT_INPUT);
   const [size, setSize] = useState(320);
+  const [downloaded, setDownloaded] = useState(false);
   const [errorLevel, setErrorLevel] = useState<ErrorLevel>("M");
   const [fgColor, setFgColor] = useState("#0f172a");
   const [bgColor, setBgColor] = useState("#ffffff");
@@ -60,7 +60,6 @@ export default function QrGeneratorClient() {
   const [dotStyle, setDotStyle] = useState<DotStyle>("square");
   const [logoDataUrl, setLogoDataUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [hasResult, setHasResult] = useState(false);
   const [busy, setBusy] = useState(false);
   const [lastData, setLastData] = useState<string | null>(null);
@@ -96,7 +95,6 @@ export default function QrGeneratorClient() {
 
   const generate = useCallback(async () => {
     setError(null);
-    setSaveMessage(null);
     setBusy(true);
     try {
       const data = resolveQrData(input);
@@ -144,6 +142,7 @@ export default function QrGeneratorClient() {
     link.download = "qrcode.png";
     link.href = canvas.toDataURL("image/png");
     link.click();
+    setDownloaded(true);
   }
 
   function handleDownloadSvg() {
@@ -160,38 +159,7 @@ export default function QrGeneratorClient() {
     link.href = url;
     link.click();
     URL.revokeObjectURL(url);
-  }
-
-  async function handleSave() {
-    const canvas = canvasRef.current;
-    if (!canvas || !session?.user) return;
-    setSaveMessage(null);
-    setBusy(true);
-    try {
-      const dataText = resolveQrData(input);
-      const res = await fetch("/api/history", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          dataText,
-          size,
-          errorCorrection: errorLevel,
-          foregroundColor: fgColor,
-          backgroundColor: bgColor,
-          hasLogo: Boolean(logoDataUrl),
-          pngDataUri: canvas.toDataURL("image/png"),
-        }),
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error ?? "Could not save this QR code.");
-      }
-      setSaveMessage("Saved to your history.");
-    } catch (err) {
-      setSaveMessage(err instanceof Error ? err.message : "Could not save this QR code.");
-    } finally {
-      setBusy(false);
-    }
+    setDownloaded(true);
   }
 
   return (
@@ -387,21 +355,7 @@ export default function QrGeneratorClient() {
                   Download SVG
                 </button>
               </div>
-              {session?.user ? (
-                <button
-                  type="button"
-                  onClick={handleSave}
-                  disabled={busy}
-                  className="rounded-lg border border-accent px-4 py-2 text-sm font-semibold text-accent-hover hover:bg-accent-soft disabled:opacity-60"
-                >
-                  Save to my history
-                </button>
-              ) : (
-                <p className="text-center text-xs text-muted">
-                  Log in to save this QR code to your history.
-                </p>
-              )}
-              {saveMessage && <p className="text-center text-xs text-muted">{saveMessage}</p>}
+              {downloaded && <SupportNote className="mt-2" />}
             </div>
           )}
         </div>
@@ -413,8 +367,7 @@ export default function QrGeneratorClient() {
           code renders instantly as you type. Nothing is sent to a server: the code, the color
           choices, and even the optional logo are drawn entirely in your browser using the
           canvas. That also means it works offline once the page has loaded, and your data (like
-          a WiFi password) never leaves your device unless you explicitly save it to your account
-          history.
+          a WiFi password) never leaves your device.
         </p>
         <p>
           Error correction controls how much of the code can be damaged, covered, or obscured (by
@@ -430,7 +383,7 @@ export default function QrGeneratorClient() {
           items={[
             {
               q: "Do I need an account to generate a QR code?",
-              a: "No. Generating, previewing, and downloading a QR code as PNG or SVG all work without signing in. An account is only needed if you want to save codes to revisit later.",
+              a: "No. There are no accounts on Sky Tools — generating, previewing, and downloading a QR code as PNG or SVG all work straight away.",
             },
             {
               q: "Will my WiFi password be visible in the QR code?",

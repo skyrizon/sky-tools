@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { zip } from "fflate";
 import {
   convertImage,
   supportsQuality,
@@ -10,6 +11,7 @@ import {
 } from "@/lib/image-convert";
 import { getPdfPageCount, renderPdfPageToImage } from "@/lib/pdf-convert";
 import AdSlot from "@/components/AdSlot";
+import SupportNote from "@/components/SupportNote";
 import { AD_SLOTS } from "@/lib/ads";
 import { ToolInfoSection, Faq } from "@/components/ToolInfo";
 
@@ -36,6 +38,7 @@ export default function ImageConverterClient() {
   const [items, setItems] = useState<Item[]>([]);
   const [format, setFormat] = useState<ImageOutputFormat>("image/webp");
   const [quality, setQuality] = useState(0.85);
+  const [downloaded, setDownloaded] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
   const nextId = useRef(0);
 
@@ -133,17 +136,56 @@ export default function ImageConverterClient() {
 
   const outputExt = OUTPUT_FORMATS.find((f) => f.value === format)?.ext ?? "png";
 
-  function downloadItem(item: Item) {
-    if (!item.url) return;
-    const link = document.createElement("a");
+  const [zipping, setZipping] = useState(false);
+
+  function itemFileName(item: Item) {
     const name = item.kind === "pdf-page" ? `${baseName(item.file.name)}-page-${item.pageNumber}` : baseName(item.file.name);
-    link.download = `${name}.${outputExt}`;
-    link.href = item.url;
-    link.click();
+    return `${name}.${outputExt}`;
   }
 
-  function downloadAll() {
-    items.forEach((item) => item.status === "done" && downloadItem(item));
+  function saveUrl(url: string, fileName: string) {
+    const link = document.createElement("a");
+    link.download = fileName;
+    link.href = url;
+    link.click();
+    setDownloaded(true);
+  }
+
+  function downloadItem(item: Item) {
+    if (!item.url) return;
+    saveUrl(item.url, itemFileName(item));
+  }
+
+  async function downloadAll() {
+    const done = items.filter((item) => item.status === "done" && item.blob);
+    if (done.length === 1) {
+      downloadItem(done[0]);
+      return;
+    }
+
+    setZipping(true);
+    try {
+      // Images are already compressed, so store them as-is (level 0) for speed.
+      const files: Record<string, [Uint8Array, { level: 0 }]> = {};
+      for (const item of done) {
+        let fileName = itemFileName(item);
+        for (let n = 2; files[fileName]; n++) {
+          fileName = fileName.replace(/(-d+)?(.w+)$/, `-${n}$2`);
+        }
+        files[fileName] = [new Uint8Array(await item.blob!.arrayBuffer()), { level: 0 }];
+      }
+      const data = await new Promise<Uint8Array>((resolve, reject) =>
+        zip(files, (err, out) => (err ? reject(err) : resolve(out))),
+      );
+
+      const sources = new Set(done.map((item) => item.file.name));
+      const zipName = sources.size === 1 ? baseName(done[0].file.name) : "sky-tools-images";
+      const url = URL.createObjectURL(new Blob([data as BlobPart], { type: "application/zip" }));
+      saveUrl(url, `${zipName}.zip`);
+      setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    } finally {
+      setZipping(false);
+    }
   }
 
   const doneCount = items.filter((i) => i.status === "done").length;
@@ -255,11 +297,12 @@ export default function ImageConverterClient() {
           <button
             type="button"
             onClick={downloadAll}
-            disabled={doneCount === 0}
+            disabled={doneCount === 0 || zipping}
             className="mt-2 rounded-lg bg-gradient-to-br from-accent to-accent-2 px-4 py-2.5 text-sm font-bold text-white shadow-md shadow-accent/30 hover:brightness-105 disabled:opacity-60"
           >
-            Download all ({doneCount})
+            {zipping ? "Preparing ZIP…" : doneCount > 1 ? `Download all as ZIP (${doneCount})` : `Download all (${doneCount})`}
           </button>
+          {downloaded && <SupportNote />}
         </div>
       </div>
 
@@ -293,7 +336,7 @@ export default function ImageConverterClient() {
             },
             {
               q: "Can I convert a multi-page PDF?",
-              a: "Yes — each page becomes its own separate image, listed individually with its own download button, plus a \"Download all\" option for the whole set.",
+              a: "Yes — each page becomes its own separate image, listed individually with its own download button, plus a \"Download all as ZIP\" option that bundles the whole set into a single .zip file.",
             },
             {
               q: "Why did my PNG get bigger after converting to JPG?",

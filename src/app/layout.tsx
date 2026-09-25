@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Script from "next/script";
 import SiteNav from "@/components/SiteNav";
-import Providers from "@/components/Providers";
+import SiteFooter from "@/components/SiteFooter";
+import KofiWidget from "@/components/KofiWidget";
 import { ADSENSE_CLIENT_ID, ADSENSE_ACCOUNT_META } from "@/lib/ads";
 import "./globals.css";
 
@@ -17,11 +18,14 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://tools.skyrizon.online"),
   title: {
     default: "Sky Tools",
     template: "%s — Sky Tools",
   },
   description: "A growing collection of free, no-nonsense web tools.",
+  openGraph: { siteName: "Sky Tools", type: "website" },
+  twitter: { card: "summary_large_image" },
   other: {
     "google-adsense-account": ADSENSE_ACCOUNT_META,
   },
@@ -40,10 +44,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           crossOrigin="anonymous"
           strategy="afterInteractive"
         />
-        <Providers>
-          <SiteNav />
-          <main className="flex-1">{children}</main>
-        </Providers>
+        <SiteNav />
+        <main className="flex-1">{children}</main>
+        <SiteFooter />
+        <KofiWidget />
       </body>
     </html>
   );

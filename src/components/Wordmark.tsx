@@ -5,7 +5,7 @@ const ASPECT_RATIO = 2000 / 2000;
 
 export default function Wordmark({ height = 40 }: { height?: number }) {
   return (
-    <Link href="/" className="inline-flex items-center">
+    <Link href="/" className="inline-flex shrink-0 items-center">
       <Image
         src="/logo-lockup.svg"
         alt="Sky Tools"

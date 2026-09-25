@@ -12,8 +12,7 @@ export default function Home() {
           Free tools, no sign-up required.
         </h1>
         <p className="mt-3 text-lg text-muted">
-          A growing collection of small, focused web tools. Create an account only if you want to
-          save your work.
+          A growing collection of small, focused web tools that run right in your browser.
         </p>
       </div>
 
@@ -37,14 +36,12 @@ export default function Home() {
         <p>
           Sky Tools is a small collection of single-purpose web tools that run entirely in your
           browser — a QR code generator, an image and PDF converter, and more added over time. No
-          file or piece of data you type into a tool is ever uploaded to a server unless you
-          explicitly choose to save it (like adding a QR code to your account history). That's a
+          file or piece of data you type into a tool is ever uploaded to a server. That's a
           deliberate choice: most everyday conversions and generations don't need a round trip to
           the cloud, so they don't get one here.
         </p>
         <p>
-          Every tool is free with no sign-up required. Creating an account is optional and only
-          useful if you want to revisit something you generated earlier.
+          Every tool is free, with no sign-up and no account — just open a tool and use it.
         </p>
       </ToolInfoSection>
 
