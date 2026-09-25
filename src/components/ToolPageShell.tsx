@@ -25,6 +25,7 @@ export default function ToolPageShell({
   heading,
   structuredData,
   extra,
+  studio = false,
   children,
 }: {
   slug: ToolSlug;
@@ -40,17 +41,23 @@ export default function ToolPageShell({
   structuredData?: object[];
   /** Rendered after the FAQ, before the ad (e.g. links to related conversions). */
   extra?: React.ReactNode;
+  /** Give the tool a wide, app-like workspace instead of the normal content column. */
+  studio?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <>
       <JsonLd data={structuredData ?? toolJsonLd(dict, lang, slug, faq)} />
-      <div className="mx-auto max-w-5xl px-6 py-12">
+      <div className="mx-auto max-w-5xl px-6 pt-12">
         <h1 className="text-2xl font-bold">{heading ?? dict.tools[slug].name}</h1>
         <p className="mt-1 text-muted">{intro}</p>
 
-        {children}
+        {!studio && children}
+      </div>
 
+      {studio && <div className="mx-auto mt-6 max-w-[1400px] px-4 sm:px-6">{children}</div>}
+
+      <div className="mx-auto max-w-5xl px-6 pb-12">
         <ToolInfoSection title={howTitle}>
           {howBody.map((paragraph) => (
             <p key={paragraph}>{paragraph}</p>

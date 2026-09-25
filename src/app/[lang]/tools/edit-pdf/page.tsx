@@ -25,6 +25,7 @@ export default async function EditPdfPage({ params }: PageProps<"/[lang]/tools/e
       howTitle={dict.editPdf.howTitle}
       howBody={dict.editPdf.howBody}
       faq={dict.editPdf.faq}
+      studio
     >
       <EditPdfClient t={dict.editPdf.ui} support={dict.support} />
     </ToolPageShell>
