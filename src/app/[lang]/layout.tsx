@@ -47,6 +47,8 @@ export async function generateMetadata({ params }: LayoutProps<"/[lang]">): Prom
     applicationName: SITE_NAME,
     openGraph: { siteName: SITE_NAME, type: "website" },
     twitter: { card: "summary_large_image" },
+    // Google Search Console (URL-prefix property). The Domain property is verified by a DNS TXT record.
+    verification: { google: "WTMMlXYiD_9HzWgnGWXnarRpN8r1N-98AKjm8z4OWJM" },
     other: {
       "google-adsense-account": ADSENSE_ACCOUNT_META,
     },
